@@ -40,23 +40,53 @@ export function Navbar() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [pathname]);
 
+  // Light-text mode applies only on the homepage hero, before the user scrolls.
+  // Everywhere else (and once scrolled) we revert to the glass + dark-text look.
+  const overHero = pathname === "/" && !scrolled;
+
   return (
     <>
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
-          scrolled ? "glass shadow-[0_4px_24px_rgba(61,8,16,0.06)]" : "bg-transparent",
+          scrolled
+            ? "glass shadow-[0_4px_24px_rgba(61,8,16,0.06)]"
+            : overHero
+              ? "bg-gradient-to-b from-[rgba(15,10,8,0.55)] via-[rgba(15,10,8,0.25)] to-transparent"
+              : "bg-[var(--color-ivory)]/90 backdrop-blur-md",
         )}
       >
         {/* Top bar */}
-        <div className="hidden md:block border-b border-[rgba(201,169,106,0.18)]">
-          <div className="mx-auto max-w-[1320px] px-6 md:px-10 flex justify-between items-center py-2 text-[11px] tracking-wider text-[var(--color-fg-muted)]">
+        <div
+          className={cn(
+            "hidden md:block border-b transition-colors",
+            overHero ? "border-white/15" : "border-[rgba(201,169,106,0.18)]",
+          )}
+        >
+          <div
+            className={cn(
+              "mx-auto max-w-[1320px] px-6 md:px-10 flex justify-between items-center py-2 text-[11px] tracking-wider transition-colors",
+              overHero ? "text-[var(--color-ivory)]/80" : "text-[var(--color-fg-muted)]",
+            )}
+          >
             <span className="uppercase">Complimentary express delivery on every order</span>
             <div className="flex items-center gap-5">
-              <a href="https://wa.me/919999999999" className="inline-flex items-center gap-1.5 hover:text-[var(--color-maroon)] transition-colors">
+              <a
+                href="https://wa.me/919999999999"
+                className={cn(
+                  "inline-flex items-center gap-1.5 transition-colors",
+                  overHero ? "hover:text-[var(--color-gold-bright)]" : "hover:text-[var(--color-maroon)]",
+                )}
+              >
                 <Icon name="whatsapp" size={14} /> WhatsApp Concierge
               </a>
-              <a href="https://instagram.com" className="inline-flex items-center gap-1.5 hover:text-[var(--color-maroon)] transition-colors">
+              <a
+                href="https://instagram.com"
+                className={cn(
+                  "inline-flex items-center gap-1.5 transition-colors",
+                  overHero ? "hover:text-[var(--color-gold-bright)]" : "hover:text-[var(--color-maroon)]",
+                )}
+              >
                 <Icon name="instagram" size={14} /> @rajavastra
               </a>
             </div>
@@ -68,17 +98,27 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="md:hidden p-2 -ml-2 text-[var(--color-noir)]"
+            className={cn("lg:hidden p-2 -ml-2 transition-colors", overHero ? "text-[var(--color-ivory)]" : "text-[var(--color-noir)]")}
             aria-label="Open menu"
           >
             <Icon name="menu" size={22} />
           </button>
 
           <Link href="/" className="flex flex-col items-start group">
-            <span className="font-[family-name:var(--font-display)] text-2xl md:text-3xl tracking-[0.02em] text-[var(--color-maroon-deep)] leading-none">
+            <span
+              className={cn(
+                "font-[family-name:var(--font-display)] text-2xl md:text-3xl tracking-[0.02em] leading-none transition-colors",
+                overHero ? "text-[var(--color-ivory)]" : "text-[var(--color-maroon-deep)]",
+              )}
+            >
               Rāja<span className="text-gradient-gold italic">vastra</span>
             </span>
-            <span className="hidden md:block text-[9px] uppercase tracking-[0.4em] text-[var(--color-gold-deep)] mt-1">
+            <span
+              className={cn(
+                "hidden md:block text-[9px] uppercase tracking-[0.4em] mt-1 transition-colors",
+                overHero ? "text-[var(--color-gold-bright)]" : "text-[var(--color-gold-deep)]",
+              )}
+            >
               Heritage Sarees · Est. 1962
             </span>
           </Link>
@@ -92,7 +132,13 @@ export function Navbar() {
                   href={l.href}
                   className={cn(
                     "relative py-1 transition-colors",
-                    active ? "text-[var(--color-maroon)]" : "text-[var(--color-noir)] hover:text-[var(--color-maroon)]",
+                    active
+                      ? overHero
+                        ? "text-[var(--color-gold-bright)]"
+                        : "text-[var(--color-maroon)]"
+                      : overHero
+                        ? "text-[var(--color-ivory)] hover:text-[var(--color-gold-bright)]"
+                        : "text-[var(--color-noir)] hover:text-[var(--color-maroon)]",
                   )}
                 >
                   {l.label}
@@ -107,42 +153,59 @@ export function Navbar() {
             })}
           </nav>
 
-          <div className="flex items-center gap-1 md:gap-2 text-[var(--color-noir)]">
+          <div
+            className={cn(
+              "flex items-center gap-1 md:gap-2 transition-colors",
+              overHero ? "text-[var(--color-ivory)]" : "text-[var(--color-noir)]",
+            )}
+          >
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="p-2.5 rounded-full hover:bg-[var(--color-cream)] transition-colors focus-ring"
+              className={cn(
+                "p-2.5 rounded-full transition-colors focus-ring",
+                overHero ? "hover:bg-white/15" : "hover:bg-[var(--color-cream)]",
+              )}
               aria-label="Search by saree code"
             >
               <Icon name="search" size={20} />
             </button>
             <Link
               href="/wishlist"
-              className="relative p-2.5 rounded-full hover:bg-[var(--color-cream)] transition-colors focus-ring"
+              className={cn(
+                "relative p-2.5 rounded-full transition-colors focus-ring",
+                overHero ? "hover:bg-white/15" : "hover:bg-[var(--color-cream)]",
+              )}
               aria-label="Wishlist"
             >
               <Icon name="heart" size={20} />
               {wishlistCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full gradient-maroon text-[10px] font-semibold text-[var(--color-ivory)]">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full gradient-gold text-[10px] font-semibold text-[var(--color-noir)]">
                   {wishlistCount}
                 </span>
               )}
             </Link>
             <Link
               href="/account"
-              className="hidden sm:inline-grid p-2.5 rounded-full hover:bg-[var(--color-cream)] transition-colors focus-ring"
+              className={cn(
+                "hidden sm:inline-grid p-2.5 rounded-full transition-colors focus-ring",
+                overHero ? "hover:bg-white/15" : "hover:bg-[var(--color-cream)]",
+              )}
               aria-label="Account"
             >
               <Icon name="user" size={20} />
             </Link>
             <Link
               href="/cart"
-              className="relative p-2.5 rounded-full hover:bg-[var(--color-cream)] transition-colors focus-ring"
+              className={cn(
+                "relative p-2.5 rounded-full transition-colors focus-ring",
+                overHero ? "hover:bg-white/15" : "hover:bg-[var(--color-cream)]",
+              )}
               aria-label="Shopping bag"
             >
               <Icon name="bag" size={20} />
               {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full gradient-maroon text-[10px] font-semibold text-[var(--color-ivory)]">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full gradient-gold text-[10px] font-semibold text-[var(--color-noir)]">
                   {cartCount}
                 </span>
               )}
