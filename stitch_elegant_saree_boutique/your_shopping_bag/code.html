@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Shopping Bag | Terra Saree</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&amp;family=Nunito+Sans:ital,wght@0,200..1000;1,200..1000&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#d4ccbf",
+                        "on-primary-fixed": "#002110",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#e4e0d8",
+                        "secondary-container": "#f0e8db",
+                        "primary": "#4a7c59",
+                        "on-background": "#2e3230",
+                        "surface-container-high": "#eae6de",
+                        "tertiary": "#705c30",
+                        "outline-variant": "#c4c8bc",
+                        "on-surface": "#2e3230",
+                        "primary-container": "#78a886",
+                        "on-error-container": "#690005",
+                        "surface": "#faf6f0",
+                        "inverse-on-surface": "#f5f0e8",
+                        "on-secondary-container": "#5e5548",
+                        "on-tertiary-container": "#554020",
+                        "on-secondary-fixed": "#1e1a13",
+                        "on-secondary-fixed-variant": "#4a4538",
+                        "tertiary-container": "#c4a66a",
+                        "surface-container": "#f0ece4",
+                        "on-tertiary-fixed": "#221a05",
+                        "on-primary-fixed-variant": "#2a6038",
+                        "error-container": "#ffdad8",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#4a7c59",
+                        "outline": "#74796e",
+                        "inverse-surface": "#2e3230",
+                        "tertiary-fixed": "#f8e0a8",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#faf6f0",
+                        "background": "#faf6f0",
+                        "on-tertiary-fixed-variant": "#554020",
+                        "surface-container-low": "#f5f1ea",
+                        "surface-container-highest": "#e4e0d8",
+                        "surface-dim": "#dbd7cf",
+                        "primary-fixed": "#c8e8d0",
+                        "secondary-fixed": "#f0e8db",
+                        "inverse-primary": "#8ecf9e",
+                        "on-surface-variant": "#4a4e4a",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#d8f0de",
+                        "secondary": "#6b6358",
+                        "tertiary-fixed-dim": "#dcc48e",
+                        "primary-fixed-dim": "#8ecf9e",
+                        "error": "#b83230",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Literata"],
+                        "display": ["Literata"],
+                        "body": ["Nunito Sans"],
+                        "label": ["Nunito Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Nunito Sans', sans-serif;
+            background-color: #faf6f0;
+        }
+        h1, h2, h3, .font-headline {
+            font-family: 'Literata', serif;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-4 bg-surface/90 backdrop-blur-md shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<div class="flex items-center gap-8">
+<span class="font-headline text-2xl font-bold text-primary dark:text-primary-fixed-dim tracking-tight">Terra Saree</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors font-body text-base leading-relaxed" href="#">Collections</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors font-body text-base leading-relaxed" href="#">Silk</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors font-body text-base leading-relaxed" href="#">Banarasi</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors font-body text-base leading-relaxed" href="#">Cotton</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors font-body text-base leading-relaxed" href="#">Heritage</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all duration-300">
+<span class="material-symbols-outlined text-primary">search</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all duration-300">
+<span class="material-symbols-outlined text-primary">favorite</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all duration-300 relative">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span class="absolute top-1 right-1 w-4 h-4 bg-tertiary text-[10px] text-white flex items-center justify-center rounded-full">2</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all duration-300">
+<span class="material-symbols-outlined text-primary">person</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow pt-32 pb-20 px-4 md:px-8 max-w-7xl mx-auto w-full">
+<div class="mb-12">
+<h1 class="text-4xl md:text-5xl font-headline font-semibold text-on-surface mb-2">Shopping Bag</h1>
+<p class="text-on-surface-variant font-body">Review your selected pieces of heritage.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<!-- Items List -->
+<div class="lg:col-span-8 space-y-8">
+<!-- Item Card 1 -->
+<div class="flex flex-col sm:flex-row gap-6 p-6 bg-surface rounded-xl shadow-[0_4px_20px_rgba(46,50,48,0.06)] border border-outline-variant/20 transition-all duration-300 hover:shadow-md">
+<div class="w-full sm:w-40 h-52 flex-shrink-0 overflow-hidden rounded-lg bg-surface-container">
+<img alt="Handwoven Silk Saree" class="w-full h-full object-cover" data-alt="A detailed close-up of a premium handwoven forest green silk saree with intricate gold zari borders. The fabric is draped elegantly over a warm wooden mannequin in a soft-lit atelier. The atmosphere is serene and luxurious, using the Terra brand palette of deep greens and warm cream highlights. Sunlight filters through a nearby window, accentuating the natural textures of the textile." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfgpjdxkkxo6wFcChmFl0KASLuhbMH-y3HnrQXk8wiPu5XMWER26Bfk8oH8tckMhrPbWRixJlkjmdZGHondzWfCHr4T5fYw9Pk8iRZlfhw3vnGtZ0V-xhd0MN0GkIF7QK9sErxKS9FnbHMjuyOpXFDKL6GULgXPKR3VvkUoWL7bPbVRavOCDbAhMqjgVLei-5Ca0q-X3MYNAXZg6OM8TcAaJdjoMyykXIbgUZtU4OsdcRczqrFftfxgBdlWpAQfd1ggioIvnrcG78"/>
+</div>
+<div class="flex flex-col justify-between flex-grow">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="text-xl font-headline font-medium text-on-surface">Emerald Heritage Kanjivaram</h3>
+<button class="text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+<p class="text-tertiary font-body font-medium mt-1">Pure Mulberry Silk</p>
+<p class="text-sm text-on-surface-variant mt-2">Color: Deep Forest Green</p>
+<p class="text-sm text-on-surface-variant">Length: 6.5 Meters (incl. Blouse)</p>
+</div>
+<div class="flex justify-between items-end mt-6">
+<div class="flex items-center border border-outline-variant rounded-lg bg-surface-container-low">
+<button class="px-3 py-1 hover:bg-surface-container transition-colors rounded-l-lg">-</button>
+<span class="px-4 py-1 font-body font-bold border-x border-outline-variant">1</span>
+<button class="px-3 py-1 hover:bg-surface-container transition-colors rounded-r-lg">+</button>
+</div>
+<div class="text-right">
+<p class="text-lg font-headline font-semibold text-primary">₹ 24,500</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Item Card 2 -->
+<div class="flex flex-col sm:flex-row gap-6 p-6 bg-surface rounded-xl shadow-[0_4px_20px_rgba(46,50,48,0.06)] border border-outline-variant/20 transition-all duration-300 hover:shadow-md">
+<div class="w-full sm:w-40 h-52 flex-shrink-0 overflow-hidden rounded-lg bg-surface-container">
+<img alt="Handmade Banarasi Saree" class="w-full h-full object-cover" data-alt="A warm and inviting photograph of a soft ivory Banarasi saree featuring delicate copper leaf motifs. The saree is artfully folded on a textured beige linen surface, surrounded by small brass bowls of jasmine flowers. The lighting is golden and warm, creating a grounded and traditional mood. The color scheme is dominated by cream, gold, and earthy browns, following the Terra design aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzEQwvJH4SOegi7ioxqk30p-Q71hQtc7JDmxhwfWbJevDTWiI4TvYSOJcOew3jqA21NLfmHlKU8Lp145L9ueR8B9_qblt4wzIaH2EmPgn0gGyKa6PUEvoOzrbDn6fs2r8jWuKTZFeVtMvWXtj3GO71urCtADkUEjw2GcjlR6aJD9eA382liwPwuoFF52ayM4CBtxGxxzA2eRZA4fbY2W2W0DDI-ejpfxEcp13LxviE1EX5Ge_fLPFpqScDS9a6kJ1RLgP628URPGQ"/>
+</div>
+<div class="flex flex-col justify-between flex-grow">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="text-xl font-headline font-medium text-on-surface">Autumn Bloom Banarasi</h3>
+<button class="text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+<p class="text-tertiary font-body font-medium mt-1">Hand-spun Cotton Silk</p>
+<p class="text-sm text-on-surface-variant mt-2">Color: Ivory &amp; Amber</p>
+<p class="text-sm text-on-surface-variant">Length: 6.2 Meters</p>
+</div>
+<div class="flex justify-between items-end mt-6">
+<div class="flex items-center border border-outline-variant rounded-lg bg-surface-container-low">
+<button class="px-3 py-1 hover:bg-surface-container transition-colors rounded-l-lg">-</button>
+<span class="px-4 py-1 font-body font-bold border-x border-outline-variant">1</span>
+<button class="px-3 py-1 hover:bg-surface-container transition-colors rounded-r-lg">+</button>
+</div>
+<div class="text-right">
+<p class="text-lg font-headline font-semibold text-primary">₹ 18,900</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Empty state nudge -->
+<div class="pt-8 flex items-center justify-between border-t border-outline-variant/30">
+<a class="flex items-center gap-2 text-primary font-body font-semibold group" href="#">
+<span class="material-symbols-outlined transition-transform group-hover:-translate-x-1">arrow_back</span>
+                        Continue Shopping
+                    </a>
+<div class="hidden md:block">
+<p class="text-sm text-on-surface-variant">Secure Checkout with Terra Heritage</p>
+</div>
+</div>
+</div>
+<!-- Summary Card -->
+<div class="lg:col-span-4">
+<div class="sticky top-28 p-8 bg-surface-container-high rounded-xl shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<h2 class="text-2xl font-headline font-semibold text-on-surface mb-6">Order Summary</h2>
+<div class="space-y-4 font-body border-b border-outline-variant/30 pb-6 mb-6">
+<div class="flex justify-between text-on-surface-variant">
+<span>Subtotal (2 items)</span>
+<span>₹ 43,400</span>
+</div>
+<div class="flex justify-between text-on-surface-variant">
+<span>Shipping</span>
+<span class="text-primary font-medium">Complimentary</span>
+</div>
+<div class="flex justify-between text-on-surface-variant">
+<span>Estimated Taxes</span>
+<span>₹ 2,170</span>
+</div>
+</div>
+<div class="flex justify-between items-center mb-8">
+<span class="text-lg font-headline font-medium text-on-surface">Total Amount</span>
+<span class="text-2xl font-headline font-bold text-primary">₹ 45,570</span>
+</div>
+<button class="w-full bg-primary text-white py-4 rounded-lg font-body font-bold text-lg hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+                        Proceed to Checkout
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<div class="mt-8 space-y-4">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-tertiary">verified</span>
+<p class="text-xs text-on-surface-variant">100% Authentic Handloom Guarantee with Silk Mark Certification.</p>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-tertiary">eco</span>
+<p class="text-xs text-on-surface-variant">Sustainably packaged in handmade cotton bags and recycled paper.</p>
+</div>
+</div>
+<div class="mt-10 p-4 bg-surface rounded-lg border border-outline-variant/20">
+<p class="text-sm font-body font-semibold text-on-surface mb-2">Have a gift card?</p>
+<div class="flex gap-2">
+<input class="flex-grow bg-white border-outline-variant rounded-md px-3 py-2 text-sm focus:ring-primary focus:border-primary" placeholder="Enter code" type="text"/>
+<button class="px-4 py-2 bg-tertiary text-white rounded-md text-sm font-semibold hover:opacity-90">Apply</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center gap-6 bg-surface-container dark:bg-on-background/5 border-t border-outline-variant/10">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-headline text-xl text-primary dark:text-primary-fixed font-bold">Terra Saree</span>
+<p class="font-body text-sm tracking-wide text-on-surface-variant dark:text-secondary-fixed-dim">© 2024 Terra Saree Heritage. Rooted in Tradition.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary transition-colors font-body text-sm tracking-wide" href="#">Craftsmanship</a>
+<a class="text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary transition-colors font-body text-sm tracking-wide" href="#">Sustainability</a>
+<a class="text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary transition-colors font-body text-sm tracking-wide" href="#">Shipping Policy</a>
+<a class="text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary transition-colors font-body text-sm tracking-wide" href="#">Contact Us</a>
+</div>
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center text-on-surface-variant hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-lg">share</span>
+</div>
+<div class="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center text-on-surface-variant hover:text-primary cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-lg">camera</span>
+</div>
+</div>
+</footer>
+</body></html>

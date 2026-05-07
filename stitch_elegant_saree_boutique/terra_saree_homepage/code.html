@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Terra Saree | Heritage &amp; Tradition</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,700&amp;family=Nunito+Sans:wght@300;400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "secondary-fixed-dim": "#d4ccbf",
+                "on-primary-fixed": "#002110",
+                "surface-container-lowest": "#ffffff",
+                "surface-variant": "#e4e0d8",
+                "secondary-container": "#f0e8db",
+                "primary": "#4a7c59",
+                "on-background": "#2e3230",
+                "surface-container-high": "#eae6de",
+                "tertiary": "#705c30",
+                "outline-variant": "#c4c8bc",
+                "on-surface": "#2e3230",
+                "primary-container": "#78a886",
+                "on-error-container": "#690005",
+                "surface": "#faf6f0",
+                "inverse-on-surface": "#f5f0e8",
+                "on-secondary-container": "#5e5548",
+                "on-tertiary-container": "#554020",
+                "on-secondary-fixed": "#1e1a13",
+                "on-secondary-fixed-variant": "#4a4538",
+                "tertiary-container": "#c4a66a",
+                "surface-container": "#f0ece4",
+                "on-tertiary-fixed": "#221a05",
+                "on-primary-fixed-variant": "#2a6038",
+                "error-container": "#ffdad8",
+                "on-secondary": "#ffffff",
+                "surface-tint": "#4a7c59",
+                "outline": "#74796e",
+                "inverse-surface": "#2e3230",
+                "tertiary-fixed": "#f8e0a8",
+                "on-error": "#ffffff",
+                "surface-bright": "#faf6f0",
+                "background": "#faf6f0",
+                "on-tertiary-fixed-variant": "#554020",
+                "surface-container-low": "#f5f1ea",
+                "surface-container-highest": "#e4e0d8",
+                "surface-dim": "#dbd7cf",
+                "primary-fixed": "#c8e8d0",
+                "secondary-fixed": "#f0e8db",
+                "inverse-primary": "#8ecf9e",
+                "on-surface-variant": "#4a4e4a",
+                "on-primary": "#ffffff",
+                "on-primary-container": "#d8f0de",
+                "secondary": "#6b6358",
+                "tertiary-fixed-dim": "#dcc48e",
+                "primary-fixed-dim": "#8ecf9e",
+                "error": "#b83230",
+                "on-tertiary": "#ffffff"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.5rem",
+                "lg": "1rem",
+                "xl": "1.5rem",
+                "full": "9999px"
+            },
+            "fontFamily": {
+                "headline": ["Literata", "serif"],
+                "display": ["Literata", "serif"],
+                "body": ["Nunito Sans", "sans-serif"],
+                "label": ["Nunito Sans", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+      body { font-family: 'Nunito Sans', sans-serif; background-color: #faf6f0; }
+      h1, h2, h3, h4 { font-family: 'Literata', serif; }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopAppBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-4 bg-surface/90 backdrop-blur-md shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<div class="flex items-center gap-12">
+<a class="font-headline text-2xl font-bold text-primary dark:text-primary-fixed-dim" href="#">Terra Saree</a>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors text-primary dark:text-primary-fixed-dim border-b-2 border-primary font-bold pb-1" href="#">Collections</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors" href="#">Silk</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors" href="#">Banarasi</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors" href="#">Cotton</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary transition-colors" href="#">Heritage</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all">shopping_bag</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all">favorite</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all">person</button>
+</div>
+</nav>
+<main class="pt-[72px]">
+<!-- Hero Section -->
+<section class="relative h-[870px] w-full flex items-center overflow-hidden">
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover" data-alt="A cinematic, high-fashion portrait of a woman in an exquisite emerald green and gold Banarasi silk saree. She stands in a sun-drenched, heritage Indian courtyard with soft golden hour lighting casting long, warm shadows. The environment is composed of earthy terracotta walls and lush tropical plants. The mood is regal, serene, and deeply rooted in tradition, reflecting a luxury organic aesthetic with a warm cream and forest green color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuO1wkcMRbl4BXtY-2QE1hMSEcH5geA_H1n4d30CjIJnwRX0jbkN-mgQH-Pneu4kscEuuIHYMsmAtHGFMY1--jY_PY-H65V9_JCdb41RdUJK30t1Gr9cNTRvGyCfNPnZc9-Jx_Y4e4Hyzg_ZFflMlLhdDajNC_IpOQuS1Bn9qB7o4X8zMvbvCEY83mS8kx4ogYKXZkCr6Fze0dbIjnEX1t3opAMR9MKr_tgsjnldQGzFkZ2Zov_uycBGhYdW3s8EclnQ0E4GF68mw"/>
+<div class="absolute inset-0 bg-gradient-to-r from-surface/60 via-transparent to-transparent"></div>
+</div>
+<div class="relative z-10 max-w-7xl mx-auto px-8 w-full">
+<div class="max-w-2xl">
+<span class="text-tertiary font-label uppercase tracking-widest text-sm mb-4 block">Handcrafted Excellence</span>
+<h1 class="text-5xl md:text-7xl text-on-surface font-headline leading-tight mb-6">Weaving Stories of <br/><span class="text-primary italic">Timeless Elegance</span></h1>
+<p class="text-on-surface-variant text-lg md:text-xl font-body leading-relaxed mb-8 max-w-lg">
+                        Discover our heritage collection, where every thread celebrates the soulful rhythm of Indian looms and the warmth of organic craftsmanship.
+                    </p>
+<div class="flex gap-4">
+<button class="bg-primary text-on-primary px-8 py-4 rounded-lg font-label font-bold shadow-lg hover:opacity-90 transition-all scale-100 active:scale-95">Explore Heritage</button>
+<button class="bg-surface text-primary border border-primary px-8 py-4 rounded-lg font-label font-bold hover:bg-surface-container-low transition-all">View Lookbook</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Curated Collections - Bento Grid -->
+<section class="py-24 px-8 max-w-7xl mx-auto">
+<div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+<div>
+<h2 class="text-4xl font-headline text-on-surface mb-4">Curated Collections</h2>
+<p class="text-on-surface-variant font-body text-lg">Selected masterpieces for the discerning connoisseur.</p>
+</div>
+<button class="text-primary font-label font-bold flex items-center gap-2 group">
+                    View All Categories 
+                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 h-[800px] md:h-[600px]">
+<div class="md:col-span-8 group relative overflow-hidden rounded-xl bg-surface-container shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Close up detail of a Royal Silk saree featuring intricate gold zari embroidery and heavy floral patterns in rich jewel tones. The lighting is soft and directional, highlighting the texture of the silk fabric. The composition is artistic and minimalist, set against a warm, neutral background. The aesthetic is luxurious and sophisticated, aligning with the forest green and warm cream brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDszr1JSs1Vb6rD2yfbkSIkoexV_DZxCln1RX2g53ZVpuxTf2SmqVS0Smj_EOybQjfyFFQoc0DdmG7A2JfhI41MoH7b8R8O4ts64IPjvqoFKra6BLr0jvY9OUUCRd-NwzuKSrQD_AdM_0X_95dNAUzep2QY2S2qJJT83VFBJQP852D3hD_K32wjf46cW0WgWu-NIxWBEdZHSBTebxNsgl6rgieD1yF3R6wNAjUQiVm551l97y0Qm4Cy47T3Zrl47_91mmTXjpGSSBk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-8">
+<h3 class="text-white text-3xl font-headline mb-2">Royal Silk</h3>
+<p class="text-white/80 font-body mb-4">Lustrous weaves for grand celebrations.</p>
+<button class="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-full font-label text-sm hover:bg-white hover:text-primary transition-all">Explore Collection</button>
+</div>
+</div>
+<div class="md:col-span-4 group relative overflow-hidden rounded-xl bg-surface-container shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="A light and airy Summer Cotton saree with delicate hand-printed floral motifs in pastel tones. The fabric is softly draped over a rustic wooden chair in a bright, sunlit room filled with natural plants. The overall mood is fresh, breathable, and organic. High-key lighting emphasizes the softness and natural texture of the cotton fibers, fitting the warm cream and earthy green palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjm5vOhgO98TDzGiSfQBgrmaLMZ23-8ZBFkCfi_GAp1NzpMmu9fP1q-eAmeL6_v_BKt7QPbSOhF7tn8-fX-RyAqXyH-ndsqW9GdZ_9QAHNW3NKYr9o295fXZkhSAs7INzzFZXkM22D5QKvjC4uggf0D9h5ky-wuEd3q1Xu3ZXj4j109cjYuwhF41Hn9tIw-xKnbkwRGheednKOs4Z_RQzeez6YlVNGoUwIJYxcGvYoJnokBRsgoZp9zRwWSwFRXtyjUbW8q1XQ-LA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-8">
+<h3 class="text-white text-2xl font-headline mb-2">Summer Cotton</h3>
+<p class="text-white/80 font-body mb-4">Breathable grace for everyday.</p>
+<button class="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-full font-label text-sm hover:bg-white hover:text-primary transition-all">Shop Cotton</button>
+</div>
+</div>
+<div class="md:col-span-4 group relative overflow-hidden rounded-xl bg-surface-container shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="A Vintage Banarasi saree displayed artistically with antique brass jewelry. The scene is lit by warm candlelight, creating deep, rich shadows and glowing highlights on the gold zari work. The background is a weathered wooden surface, adding a rustic and grounded texture. The visual style is warm, nostalgic, and deeply rooted in Indian cultural heritage with a sophisticated desaturated color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCi6aivxDo7kMbzAjnXnVakKgil9Oxs2Vh4mtBzAwsvfMKGRAkoeUl1JL8AcX0I1GPbG-iwLbvmqFD5hFIjJNMJFTUHb7VlpuJ-StoLIlqcKEAPQcNVaWbLjut5Ba2bLygV7wzn_M8XNsqfXnohmbSWjJbxQWXvgz5aI5nVLjHaguQ6m9dlq5b4vJijtVlkuCtx-tcGp1YMUEzGsExK4tL4Aq2MJvPAW3Wolxy_u_38Wceqc8tx3L--iDtiRUJoWw-kKVKk-QgPNWo"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-8">
+<h3 class="text-white text-2xl font-headline mb-2">Vintage Banarasi</h3>
+<p class="text-white/80 font-body mb-4">Timeless heirlooms for generations.</p>
+<button class="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-full font-label text-sm hover:bg-white hover:text-primary transition-all">View Heritage</button>
+</div>
+</div>
+<div class="md:col-span-8 group relative overflow-hidden rounded-xl bg-surface-container shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<div class="absolute inset-0 bg-primary/10 group-hover:bg-primary/20 transition-colors z-0"></div>
+<div class="relative z-10 h-full flex flex-col justify-center items-center text-center p-12">
+<span class="text-tertiary font-label font-bold text-sm uppercase tracking-widest mb-4">Coming Soon</span>
+<h3 class="text-4xl font-headline text-on-surface mb-4">The Earth Collection</h3>
+<p class="text-on-surface-variant font-body text-lg max-w-md mx-auto mb-8">
+                            A limited edition series dyed with 100% organic forest minerals and botanical extracts.
+                        </p>
+<button class="bg-primary text-on-primary px-8 py-3 rounded-lg font-label font-bold hover:opacity-90 transition-all">Get Notified</button>
+</div>
+</div>
+</div>
+</section>
+<!-- New Arrivals Carousel -->
+<section class="py-24 bg-surface-container-low overflow-hidden">
+<div class="max-w-7xl mx-auto px-8 mb-12 flex justify-between items-center">
+<h2 class="text-4xl font-headline text-on-surface">New Arrivals</h2>
+<div class="flex gap-2">
+<button class="p-2 rounded-full border border-outline-variant text-primary hover:bg-white transition-all"><span class="material-symbols-outlined">chevron_left</span></button>
+<button class="p-2 rounded-full border border-outline-variant text-primary hover:bg-white transition-all"><span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+</div>
+<div class="flex gap-6 px-8 overflow-x-auto hide-scrollbar pb-8">
+<!-- Saree Card 1 -->
+<div class="flex-none w-80 group">
+<div class="h-96 rounded-xl overflow-hidden mb-4 shadow-sm bg-surface">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A high-end studio product shot of a draped mulberry silk saree in a deep forest green color with intricate silver border. The fabric's sheen is emphasized by professional softbox lighting. The background is a clean, warm cream color with subtle shadows. The overall aesthetic is minimalist, elegant, and perfectly aligned with a luxury fashion brand's high-quality standards." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFz_VCZROTlGvcWYyF1Sr73Xlz799MZt5bOrZGc-w_Q21ZqQQ3zLdz_xmLf2cY1sy9ay-0m7I--m1O0aWx24kCTRHhsTWfH4MB_3YBr4E4I9d27Wb_R7x-yL1umNsyok_Ve2DUJzixNCb5kBFG_tHNi0_2l8BTZ7S0F8GlbvszavP0xUfC4cFlCvzub6hLRSwpC2dY6SvlVpBPvvf60duw8JqR5aO4AyO4G_2bn_J71XXA73CTVYhqrm3gh1EHoiZp9IBrecsrl_Y"/>
+</div>
+<h4 class="font-headline text-xl text-on-surface">Mulberry Forest Bloom</h4>
+<p class="text-tertiary font-label font-bold">₹24,500</p>
+<p class="text-on-surface-variant text-sm font-body mt-2">Pure Handloom Silk</p>
+</div>
+<!-- Saree Card 2 -->
+<div class="flex-none w-80 group">
+<div class="h-96 rounded-xl overflow-hidden mb-4 shadow-sm bg-surface">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A luxury handloom saree in warm ochre yellow with dark amber accents. The fabric features traditional geometric weaves and a broad gold zari border. The shot is captured in a bright studio with soft, natural-feeling light. The composition highlights the drape and texture of the heavy silk. The atmosphere is warm, approachable, and premium, using earthy and desaturated tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXRAUrj7H-Txaw0ocQ40JXZniBd0p57es1IkQ7DJ9kjwRZfj3s-q4RpUPnz5SM-QTOBJ3u5ZD-rCK9QQUCZ9DQqYWxJMRL8gx1YWMvVVxjH45aM3DBQQ3MBz1wNNDYCERtGZQFPMpdeqUV1zqATmnsT0_caOL9BG7oRBlGszk2bjlIpIbnUhNFQ4In8rrS-h9dz0Pdg3FYop7grdIFlcVaQo9NnJxi09wzx6b06AxKe1dsAODR5jZJ-pPzv2Oi4yU3rr-tJThyYYg"/>
+</div>
+<h4 class="font-headline text-xl text-on-surface">Amber Sunset Weave</h4>
+<p class="text-tertiary font-label font-bold">₹18,900</p>
+<p class="text-on-surface-variant text-sm font-body mt-2">Kanchipuram Heritage</p>
+</div>
+<!-- Saree Card 3 -->
+<div class="flex-none w-80 group">
+<div class="h-96 rounded-xl overflow-hidden mb-4 shadow-sm bg-surface">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A delicate, ivory-colored cotton saree with fine block prints in soft teal and charcoal. The lighting is bright and diffuse, creating a serene, calm mood. The fabric is light and semi-translucent, shown draped over an organic texture like linen. The design is contemporary yet rooted in tradition, following a warm, minimalist, and high-end aesthetic with soft rounded edges." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJHEy2QxOWv3GE-Xt5IGdG-zg1fjU4WB2RZzN1pNUVav3o6kwskrSdWf2Pboc6RyBncCRg4cz6f0l_3XVw7cdo1NlrUKPZi7tztXp6WfZNuoeaY0_U6FZV-uwHDICsm-dm_Cm5Lg_q8HbqlOPTuYkhWJzcJQp_KmMqSITIRVhw5gk8DLAEQrgxs8LYqmNv5ntZn0G5InpXP_Q6tCQrh_NVNFgjanwlKJwvwlj5_SM0etmsAjb8z2T_fAJOtyhApMACxuAOwg-YY7M"/>
+</div>
+<h4 class="font-headline text-xl text-on-surface">Ivory Mist Cotton</h4>
+<p class="text-tertiary font-label font-bold">₹8,400</p>
+<p class="text-on-surface-variant text-sm font-body mt-2">Organic Handspun Cotton</p>
+</div>
+<!-- Saree Card 4 -->
+<div class="flex-none w-80 group">
+<div class="h-96 rounded-xl overflow-hidden mb-4 shadow-sm bg-surface">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A traditional crimson red Banarasi silk saree with heavy gold brocade work. The close-up shot focuses on the intricate weaving patterns and the rich texture of the gold threads. The lighting is warm and dramatic, typical of a high-end luxury boutique. The palette consists of deep reds, golds, and warm browns, evoking a sense of heritage and artisanal excellence." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdoVuubWdaMtLpVUQvMskqa3b-TwHzBQWLzWOEKkAP32gQCMeT4omeCViVsffNRvLgj7z-f8uqglbpOoFy29muLVjaDDF-R0hqB0B5_qp-VtfxLeq8g7jZlcjFMqe_DS1vSwSO9zXZfvATSh9fKce-AEFZjAnLR1q2ZzpjwjpwJe55LSlyQ1Ze3TGVTdQzmZ9GGPQuvlE3ZnNr6pT2czL76JX1tp5BKI5eIfc2_AtR_ezfUpiuXdnhRKcz-ewzvdTDqZl9rvg5GdE"/>
+</div>
+<h4 class="font-headline text-xl text-on-surface">Crimson Royal Heritage</h4>
+<p class="text-tertiary font-label font-bold">₹32,000</p>
+<p class="text-on-surface-variant text-sm font-body mt-2">Vintage Banarasi Silk</p>
+</div>
+</div>
+</section>
+<!-- The Art of Saree -->
+<section class="py-24 px-8 max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
+<div class="w-full md:w-1/2 relative">
+<div class="absolute -top-4 -left-4 w-full h-full border-2 border-primary rounded-xl -z-10"></div>
+<img class="w-full h-[500px] object-cover rounded-xl shadow-xl" data-alt="An authentic, cinematic scene of a traditional Indian weaver working on a wooden handloom. Dust motes dance in the soft shafts of natural light coming through a window. The weaver's hands are focused on the intricate threads of a silk saree. The workshop is filled with earthy textures—wood, old bricks, and colorful spools of yarn. The overall mood is grounded, peaceful, and respectful of the artisanal process." src="https://lh3.googleusercontent.com/aida-public/AB6AXuASt4Gjbf_CwIOwN_lBUit9DX_ZSIIOrJVZPmCRtc-GSjK1U49MOm8EM32R4sfdSpSVQlQJQ3l97og43ePj1cswJngm0169qeq-IcaotsDNZB1us8E0N1UFR-TH_TcuTFqC-108ULpLPxQswuXw9hWgmCVjOliaOtI6Sn_ZePMIX6BLNn7wJNtKqtnpj9yO56bW3uHQuhgPPqsarwgI9KnQZqlqlaz2fnpgZRdaRhmB7PD8qqo2Ch64T_ykq-_pbZWh6lhBY_499t8"/>
+</div>
+<div class="w-full md:w-1/2">
+<span class="text-tertiary font-label font-bold uppercase tracking-widest text-sm mb-4 block">Our Philosophy</span>
+<h2 class="text-4xl md:text-5xl font-headline text-on-surface mb-6">The Soul in Every Stitch</h2>
+<p class="text-on-surface-variant font-body text-lg leading-relaxed mb-6">
+                    At Terra Saree, we believe a saree is more than six yards of fabric; it's a living canvas of history. Our artisans use centuries-old techniques, honoring the slow, rhythmic process of hand-weaving that no machine can replicate.
+                </p>
+<div class="space-y-4 mb-8">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary mt-1">eco</span>
+<div>
+<h4 class="font-headline text-xl text-on-surface">Natural Dyes</h4>
+<p class="text-on-surface-variant font-body">Sourced from Indigo, Turmeric, and Madder roots for skin-friendly elegance.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary mt-1">diversity_2</span>
+<div>
+<h4 class="font-headline text-xl text-on-surface">Fair Trade Heritage</h4>
+<p class="text-on-surface-variant font-body">Direct partnerships with 500+ weaver families across Banaras and Kanchipuram.</p>
+</div>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-10 py-4 rounded-lg font-label font-bold hover:opacity-90 transition-all">Read Our Story</button>
+</div>
+</section>
+<!-- Newsletter / Community -->
+<section class="mb-24 px-8 max-w-7xl mx-auto">
+<div class="bg-primary-container rounded-3xl p-12 md:p-24 flex flex-col items-center text-center">
+<h2 class="text-3xl md:text-5xl font-headline text-on-primary-fixed mb-6">Join the Terra Community</h2>
+<p class="text-on-primary-fixed/80 font-body text-lg max-w-xl mb-10 leading-relaxed">
+                    Be the first to hear about our new arrivals, artisan stories, and exclusive heritage exhibitions.
+                </p>
+<form class="w-full max-w-md flex flex-col md:flex-row gap-4">
+<input class="flex-grow bg-surface border-none rounded-lg px-6 py-4 focus:ring-2 focus:ring-primary/20 text-on-surface" placeholder="Enter your email" type="email"/>
+<button class="bg-primary text-on-primary px-8 py-4 rounded-lg font-label font-bold hover:bg-on-background transition-colors whitespace-nowrap" type="submit">Subscribe Now</button>
+</form>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center gap-6 bg-surface-container-high dark:bg-surface-container-lowest">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-headline text-xl text-primary dark:text-primary-fixed">Terra Saree</span>
+<p class="font-body text-sm tracking-wide text-on-surface-variant dark:text-secondary-fixed-dim">© 2024 Terra Saree Heritage. Rooted in Tradition.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-body text-sm tracking-wide text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary dark:hover:text-tertiary-fixed-dim transition-colors" href="#">Craftsmanship</a>
+<a class="font-body text-sm tracking-wide text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary dark:hover:text-tertiary-fixed-dim transition-colors" href="#">Sustainability</a>
+<a class="font-body text-sm tracking-wide text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary dark:hover:text-tertiary-fixed-dim transition-colors" href="#">Shipping Policy</a>
+<a class="font-body text-sm tracking-wide text-on-surface-variant dark:text-secondary-fixed-dim hover:text-tertiary dark:hover:text-tertiary-fixed-dim transition-colors" href="#">Contact Us</a>
+</div>
+<div class="flex gap-4">
+<button class="material-symbols-outlined text-primary focus:ring-2 focus:ring-primary/20 p-2 rounded-full">public</button>
+<button class="material-symbols-outlined text-primary focus:ring-2 focus:ring-primary/20 p-2 rounded-full">mail</button>
+</div>
+</footer>
+</body></html>
