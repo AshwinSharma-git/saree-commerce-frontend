@@ -9,7 +9,10 @@ import { Section, Eyebrow } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { products } from "@/lib/data/products";
+import { ordersApi } from "@/lib/api/orders";
+import { ApiError } from "@/lib/api/client";
 import { formatINR } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -18,6 +21,7 @@ const steps = ["Address", "Delivery", "Payment"] as const;
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart } = useShop();
+  const { user } = useAuth();
   const items = Object.entries(cart).map(([id, qty]) => {
     const product = products.find((p) => p.id === id)!;
     return { product, qty };
@@ -32,6 +36,7 @@ export default function CheckoutPage() {
   const [delivery, setDelivery] = useState<"express" | "standard" | "white-glove">("express");
   const [payment, setPayment] = useState<"upi" | "card" | "netbanking" | "cod">("upi");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (items.length === 0) {
     return (
@@ -44,13 +49,37 @@ export default function CheckoutPage() {
     );
   }
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     setSubmitting(true);
-    setTimeout(() => {
-      const orderId = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+    setSubmitError(null);
+
+    // Demo path — no auth: keep the simulated success route so the UI stays
+    // demoable without requiring sign-in. Real orders need auth.
+    if (!user) {
+      setTimeout(() => {
+        const fakeNumber = `RV-${Math.floor(10000 + Math.random() * 90000)}`;
+        clearCart();
+        router.push(`/tracking?order=${fakeNumber}&demo=1`);
+      }, 1200);
+      return;
+    }
+
+    try {
+      const order = await ordersApi.create({
+        channel: "WEB",
+        items: items.map((it) => ({
+          productId: it.product.id,
+          quantity: it.qty,
+        })),
+      });
       clearCart();
-      router.push(`/tracking?order=${orderId}`);
-    }, 1400);
+      router.push(`/tracking?order=${encodeURIComponent(order.number)}`);
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not place order. Please try again.";
+      setSubmitError(message);
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -213,10 +242,22 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
+                {submitError && (
+                  <p className="mt-5 px-4 py-3 rounded-xl bg-[var(--color-maroon)]/10 text-[var(--color-maroon)] text-sm" role="alert">
+                    {submitError}
+                  </p>
+                )}
+
+                {!user && (
+                  <p className="mt-5 px-4 py-3 rounded-xl bg-[var(--color-cream-warm)] text-[var(--color-maroon-deep)] text-xs" role="status">
+                    You're checking out as a guest. <Link href="/account" className="underline">Sign in</Link> to track your order in your account.
+                  </p>
+                )}
+
                 <div className="mt-7 flex justify-between">
                   <Button variant="secondary" onClick={() => setStep(1)} iconLeft={<Icon name="arrow-left" size={16} />}>Back</Button>
                   <Button variant="gold" onClick={handlePlaceOrder} loading={submitting}>
-                    {submitting ? "Placing order…" : `Pay ${formatINR(total)}`}
+                    {submitting ? "Placing order…" : `Pay ${formatINR(total)} (demo)`}
                   </Button>
                 </div>
               </motion.section>

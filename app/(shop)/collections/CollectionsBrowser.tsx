@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Section, Eyebrow } from "@/components/ui/Section";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Icon } from "@/components/ui/Icon";
-import { products, searchProducts } from "@/lib/data/products";
+import { products as fallbackProducts } from "@/lib/data/products";
+import { productsApi } from "@/lib/api/products";
+import { adaptProducts } from "@/lib/api/adapt";
+import type { Product } from "@/types";
 import { cn } from "@/lib/cn";
 
 const fabrics = ["Banarasi Silk", "Kanjivaram Silk", "Mulberry Silk", "Tussar Silk", "Organic Cotton", "Linen", "Chiffon", "Georgette"];
@@ -42,9 +45,42 @@ export default function CollectionsBrowser() {
   const [priceMax, setPriceMax] = useState(50000);
   const [sort, setSort] = useState<Sort>("curated");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>(fallbackProducts);
+
+  // Fetch live catalogue once on mount. Filtering / sorting stays client-side
+  // so the rich filter UX keeps working without round-tripping each change.
+  // If the API is unreachable (cold start, dev offline) we keep the seeded
+  // mock data so the page never looks empty.
+  useEffect(() => {
+    let cancelled = false;
+    productsApi
+      .list({ pageSize: 100 })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data.length > 0) setProducts(adaptProducts(res.data));
+      })
+      .catch(() => {
+        // Stay on the mock fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const list = useMemo(() => {
-    let r = q ? searchProducts(q) : [...products];
+    const baseSearch = (term: string): Product[] => {
+      const t = term.trim().toLowerCase();
+      if (!t) return products;
+      return products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(t) ||
+          p.code.toLowerCase().includes(t) ||
+          p.fabric.toLowerCase().includes(t) ||
+          p.collection.toLowerCase().includes(t) ||
+          p.tags.some((tag) => tag.toLowerCase().includes(t)),
+      );
+    };
+    let r = q ? baseSearch(q) : [...products];
     if (selectedFabrics.length) r = r.filter((p) => selectedFabrics.includes(p.fabric));
     if (selectedCollections.length) r = r.filter((p) => selectedCollections.includes(p.collection));
     if (selectedOccasions.length) r = r.filter((p) => p.occasion.some((o) => selectedOccasions.includes(o)));
@@ -63,7 +99,7 @@ export default function CollectionsBrowser() {
         break;
     }
     return r;
-  }, [q, selectedFabrics, selectedOccasions, selectedCollections, selectedColors, priceMax, sort]);
+  }, [q, selectedFabrics, selectedOccasions, selectedCollections, selectedColors, priceMax, sort, products]);
 
   const toggle = (arr: string[], setArr: (v: string[]) => void, v: string) =>
     setArr(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);

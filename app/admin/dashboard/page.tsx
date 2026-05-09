@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -8,93 +9,212 @@ import { StatCard } from "@/components/admin/StatCard";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { orders, insights, monthlyRevenue, channelMix } from "@/lib/data/orders";
-import { products } from "@/lib/data/products";
-import { formatINR, formatNumber, relativeDate } from "@/lib/format";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { adminApi } from "@/lib/api/admin";
+import { getSocket } from "@/lib/socket/client";
+import type { ApiAdminOverview } from "@/lib/api/types";
+import { formatINR as formatRupees, relativeDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
+const fmtPaise = (paise: number) => formatRupees(Math.round(paise / 100));
+
 export default function AdminDashboard() {
-  const revenueThisMonth = monthlyRevenue[monthlyRevenue.length - 1].value;
-  const revenuePrev = monthlyRevenue[monthlyRevenue.length - 2].value;
-  const revenueDelta = (((revenueThisMonth - revenuePrev) / revenuePrev) * 100).toFixed(1);
-  const lowStock = products.filter((p) => p.stock <= 5);
+  const { user } = useAuth();
+  const [data, setData] = useState<ApiAdminOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pulse, setPulse] = useState<string | null>(null);
+
+  // Initial fetch + revalidate every 30s as a safety net.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const overview = await adminApi.overview();
+        if (!cancelled) setData(overview);
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      }
+    };
+    void load();
+    const id = setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // Live updates: re-fetch on inventory or order changes (debounced via simple flag).
+  useEffect(() => {
+    const socket = getSocket();
+    let pending = false;
+    const refresh = (kind: string) => {
+      setPulse(kind);
+      setTimeout(() => setPulse(null), 1200);
+      if (pending) return;
+      pending = true;
+      setTimeout(async () => {
+        try {
+          setData(await adminApi.overview());
+        } catch {
+          /* ignore — keep current data */
+        } finally {
+          pending = false;
+        }
+      }, 600);
+    };
+    const onOrder = () => refresh("order");
+    const onInventory = () => refresh("stock");
+    const onAdminAlert = (payload: { kind?: string }) => refresh(payload.kind ?? "alert");
+    socket.on("order:updated", onOrder);
+    socket.on("inventory:updated", onInventory);
+    socket.on("admin:alert", onAdminAlert);
+    return () => {
+      socket.off("order:updated", onOrder);
+      socket.off("inventory:updated", onInventory);
+      socket.off("admin:alert", onAdminAlert);
+    };
+  }, []);
+
+  const greetingName = user?.firstName ?? "Admin";
+  const today = new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  if (!data) {
+    return (
+      <AdminShell title={`Good day, ${greetingName}`} subtitle={`Today · ${today}`}>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-32 rounded-2xl bg-[var(--color-cream)] animate-pulse" />
+          ))}
+        </div>
+        {error && <p className="mt-6 text-sm text-[var(--color-maroon)]">{error}</p>}
+      </AdminShell>
+    );
+  }
+
+  const channelCounts = data.channelMix.reduce(
+    (acc, c) => {
+      acc[c.channel] = c.count;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+  const totalChannelOrders = Object.values(channelCounts).reduce((a, b) => a + b, 0) || 1;
 
   return (
     <AdminShell
-      title="Good evening, Sanjay"
-      subtitle="Here's how the atelier is doing today · 6 May 2026"
+      title={`Good day, ${greetingName}`}
+      subtitle={`${today} · ${data.mode.payment === "demo" ? "Demo payments" : "Live payments"} · ${data.mode.tracking === "demo" ? "Simulated tracking" : "Live tracking"} · WhatsApp ${data.mode.whatsapp}`}
       actions={
-        <Button variant="primary" size="sm" iconLeft={<Icon name="plus" size={14} />}>
-          New Product
-        </Button>
+        <div className="flex items-center gap-3">
+          {pulse && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live · {pulse}
+            </span>
+          )}
+          <Link href="/admin/products">
+            <Button variant="primary" size="sm" iconLeft={<Icon name="plus" size={14} />}>
+              New Product
+            </Button>
+          </Link>
+        </div>
       }
     >
+      {/* Top stats */}
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatCard label="Revenue · this month" value={formatINR(revenueThisMonth)} delta={`+${revenueDelta}% vs last month`} positive icon="trending" accent="gold" />
-        <StatCard label="Orders this week" value="42" delta="+18% week-over-week" positive icon="package" accent="maroon" />
-        <StatCard label="Active customers" value={formatNumber(1284)} delta="+12 VIPs added" positive icon="users" accent="noir" />
-        <StatCard label="Low-stock alerts" value={String(lowStock.length)} delta="Restock recommended" icon="alert" accent="maroon" />
+        <StatCard
+          label="Revenue · this month"
+          value={fmtPaise(data.revenue.thisMonth)}
+          delta={`Today: ${fmtPaise(data.revenue.today)}`}
+          positive
+          icon="trending"
+          accent="gold"
+        />
+        <StatCard
+          label="Orders · last 7 days"
+          value={String(data.orders.last7Days)}
+          delta={`${data.orders.pending} awaiting confirmation`}
+          icon="package"
+          accent="maroon"
+        />
+        <StatCard
+          label="Customers · active 30d"
+          value={String(data.customers.activeLast30Days)}
+          icon="users"
+          accent="noir"
+        />
+        <StatCard
+          label="Low-stock alerts"
+          value={String(data.inventory.lowStock)}
+          delta={data.inventory.lowStock > 0 ? "Restock recommended" : "Everything healthy"}
+          positive={data.inventory.lowStock === 0}
+          icon="alert"
+          accent="maroon"
+        />
       </div>
 
+      {/* Revenue chart + channel mix */}
       <div className="mt-8 grid lg:grid-cols-3 gap-5">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
           className="lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] ring-1 ring-[rgba(90,15,26,0.06)] luxury-shadow-soft"
         >
           <div className="flex items-center justify-between mb-6">
             <div>
               <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">Revenue</p>
-              <h3 className="font-[family-name:var(--font-display)] text-2xl">Last 7 months</h3>
-            </div>
-            <div className="flex gap-2 text-xs">
-              {["7M", "1Y", "All"].map((p, i) => (
-                <button
-                  key={p}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full",
-                    i === 0
-                      ? "bg-[var(--color-noir)] text-[var(--color-gold-bright)]"
-                      : "ring-1 ring-[rgba(90,15,26,0.12)] text-[var(--color-fg-muted)]",
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
+              <h3 className="font-[family-name:var(--font-display)] text-2xl">Last 7 days</h3>
             </div>
           </div>
-          <RevenueChart />
+          <RevenueChart series={data.revenueSeries} />
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
           className="p-6 rounded-2xl bg-[var(--color-noir)] text-[var(--color-ivory)]"
         >
-          <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-bright)]">Channel mix</p>
-          <h3 className="font-[family-name:var(--font-display)] text-2xl mt-1">Where orders come from</h3>
-          <ChannelDonut />
-          <ul className="mt-4 space-y-2 text-sm">
-            {channelMix.map((c, i) => (
-              <li key={c.name} className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: ["#c9a96a", "#5a0f1a", "#9d7d3c"][i] }}
-                  />
-                  {c.name}
-                </span>
-                <span className="text-[var(--color-ivory)]/70">{c.value}%</span>
-              </li>
-            ))}
+          <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-bright)]">Channel mix · 30d</p>
+          <h3 className="font-[family-name:var(--font-display)] text-2xl mt-1">Where orders arrive</h3>
+          <ul className="mt-6 space-y-3 text-sm">
+            {(["WEB", "WHATSAPP", "INSTAGRAM", "ADMIN"] as const).map((channel, i) => {
+              const value = channelCounts[channel] ?? 0;
+              const pct = Math.round((value / totalChannelOrders) * 100);
+              return (
+                <li key={channel}>
+                  <div className="flex justify-between">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: ["#c9a96a", "#5a0f1a", "#9d7d3c", "#2a201c"][i] }}
+                      />
+                      {channel}
+                    </span>
+                    <span className="text-[var(--color-ivory)]/70">{value}</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full"
+                      style={{
+                        width: `${pct}%`,
+                        background: ["#c9a96a", "#5a0f1a", "#9d7d3c", "#2a201c"][i],
+                      }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </motion.div>
       </div>
 
+      {/* Recent orders + Top products */}
       <div className="mt-8 grid lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] ring-1 ring-[rgba(90,15,26,0.06)] luxury-shadow-soft">
           <div className="flex items-center justify-between mb-5">
@@ -102,191 +222,139 @@ export default function AdminDashboard() {
               <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">Orders</p>
               <h3 className="font-[family-name:var(--font-display)] text-2xl">Recent activity</h3>
             </div>
-            <Link href="/admin/orders" className="text-sm text-[var(--color-maroon)]">View all →</Link>
+            <Link href="/admin/orders" className="text-sm text-[var(--color-maroon)]">
+              View all →
+            </Link>
           </div>
-          <table className="w-full text-sm">
-            <thead className="text-[10px] uppercase tracking-[0.28em] text-[var(--color-fg-muted)]">
-              <tr>
-                <th className="text-left pb-3">Order</th>
-                <th className="text-left pb-3">Customer</th>
-                <th className="text-left pb-3">Channel</th>
-                <th className="text-left pb-3">Status</th>
-                <th className="text-right pb-3">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.slice(0, 5).map((o) => (
-                <tr key={o.id} className="border-t border-[rgba(90,15,26,0.06)]">
-                  <td className="py-3.5 font-medium">{o.id}</td>
-                  <td className="py-3.5">
-                    <p>{o.customer}</p>
-                    <p className="text-xs text-[var(--color-fg-muted)]">{relativeDate(o.placedAt)}</p>
-                  </td>
-                  <td className="py-3.5">
-                    <span className="inline-flex items-center gap-1.5 text-xs">
-                      <Icon name={o.channel === "WhatsApp" ? "whatsapp" : o.channel === "Instagram" ? "instagram" : "user"} size={12} />
-                      {o.channel}
-                    </span>
-                  </td>
-                  <td className="py-3.5">
-                    <StatusPill status={o.status} />
-                  </td>
-                  <td className="py-3.5 text-right font-medium">{formatINR(o.total)}</td>
+          {data.recentOrders.length === 0 ? (
+            <p className="text-sm text-[var(--color-fg-muted)]">No orders yet — they'll appear here in real time.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="text-[10px] uppercase tracking-[0.28em] text-[var(--color-fg-muted)]">
+                <tr>
+                  <th className="text-left pb-3">Order</th>
+                  <th className="text-left pb-3">Customer</th>
+                  <th className="text-left pb-3">Channel</th>
+                  <th className="text-left pb-3">Status</th>
+                  <th className="text-right pb-3">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.recentOrders.map((o) => (
+                  <tr key={o.id} className="border-t border-[rgba(90,15,26,0.06)]">
+                    <td className="py-3.5 font-medium">{o.number}</td>
+                    <td className="py-3.5">
+                      <p>
+                        {o.user
+                          ? [o.user.firstName, o.user.lastName].filter(Boolean).join(" ") || o.user.email
+                          : "Guest"}
+                      </p>
+                      <p className="text-xs text-[var(--color-fg-muted)]">{relativeDate(o.placedAt)}</p>
+                    </td>
+                    <td className="py-3.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <Icon
+                          name={o.channel === "WHATSAPP" ? "whatsapp" : o.channel === "INSTAGRAM" ? "instagram" : "user"}
+                          size={12}
+                        />
+                        {o.channel}
+                      </span>
+                    </td>
+                    <td className="py-3.5">
+                      <StatusPill status={o.status} />
+                    </td>
+                    <td className="py-3.5 text-right font-medium">{fmtPaise(o.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        <div className="p-6 rounded-2xl bg-gradient-to-br from-[var(--color-cream-warm)]/40 to-transparent ring-1 ring-[rgba(201,169,106,0.3)]">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="grid place-items-center h-8 w-8 rounded-full gradient-gold text-[var(--color-noir)]">
-              <Icon name="ai" size={14} />
-            </span>
-            <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">Atelier AI</p>
-          </div>
-          <h3 className="font-[family-name:var(--font-display)] text-2xl">Today&rsquo;s insights</h3>
-          <ul className="mt-5 space-y-4">
-            {insights.map((i) => (
-              <li key={i.id} className="flex gap-3">
-                <span className={cn(
-                  "mt-1 h-2 w-2 rounded-full flex-shrink-0",
-                  i.impact === "high" ? "bg-[var(--color-maroon)]" : "bg-[var(--color-gold)]",
-                )} />
-                <div>
-                  <p className="text-sm font-medium">{i.title}</p>
-                  <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{i.description}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="mt-8 grid lg:grid-cols-2 gap-5">
         <div className="p-6 rounded-2xl bg-[var(--color-surface)] ring-1 ring-[rgba(90,15,26,0.06)] luxury-shadow-soft">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-[family-name:var(--font-display)] text-xl">Low-stock alerts</h3>
-            <Link href="/admin/inventory" className="text-sm text-[var(--color-maroon)]">Manage →</Link>
+            <h3 className="font-[family-name:var(--font-display)] text-xl">Top sellers · 30d</h3>
+            <Link href="/admin/products" className="text-xs text-[var(--color-maroon)]">
+              All products →
+            </Link>
           </div>
-          <ul className="space-y-3">
-            {lowStock.slice(0, 4).map((p) => (
-              <li key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-cream)]">
-                <div className="relative h-12 w-12 rounded-lg overflow-hidden">
-                  <Image src={p.image} alt={p.name} fill sizes="60px" className="object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{p.name}</p>
-                  <p className="text-xs text-[var(--color-fg-muted)]">{p.code} · {p.fabric}</p>
-                </div>
-                <span className="px-2.5 py-1 rounded-full bg-[var(--color-maroon)]/10 text-[var(--color-maroon)] text-xs font-medium">
-                  {p.stock} left
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="p-6 rounded-2xl bg-[var(--color-surface)] ring-1 ring-[rgba(90,15,26,0.06)] luxury-shadow-soft">
-          <h3 className="font-[family-name:var(--font-display)] text-xl mb-5">Best-sellers this week</h3>
-          <ul className="space-y-3">
-            {products.filter((p) => p.isBestseller).map((p, i) => (
-              <li key={p.id} className="flex items-center gap-3">
-                <span className="font-[family-name:var(--font-display)] text-3xl text-gradient-gold w-8">{i + 1}</span>
-                <div className="relative h-12 w-12 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image src={p.image} alt={p.name} fill sizes="60px" className="object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{p.name}</p>
-                  <p className="text-xs text-[var(--color-fg-muted)]">{formatINR(p.price)}</p>
-                </div>
-                <span className="text-xs text-emerald-700 flex items-center gap-1">
-                  <Icon name="trending" size={12} /> +{30 - i * 6}%
-                </span>
-              </li>
-            ))}
-          </ul>
+          {data.topProducts.length === 0 ? (
+            <p className="text-sm text-[var(--color-fg-muted)]">No sales data yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {data.topProducts.map((t, i) => (
+                <li key={t.productId} className="flex items-center gap-3">
+                  <span className="font-[family-name:var(--font-display)] text-3xl text-gradient-gold w-8">
+                    {i + 1}
+                  </span>
+                  {t.product?.images[0]?.url ? (
+                    <div className="relative h-12 w-12 rounded-lg overflow-hidden flex-shrink-0">
+                      <Image
+                        src={t.product.images[0].url}
+                        alt={t.product.title}
+                        fill
+                        sizes="60px"
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-12 w-12 rounded-lg bg-[var(--color-cream)]" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{t.product?.title ?? "—"}</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                      {t.unitsSold} sold · {fmtPaise(t.revenue)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </AdminShell>
   );
 }
 
-function RevenueChart() {
-  const max = Math.max(...monthlyRevenue.map((m) => m.value));
-  const w = 600;
-  const h = 200;
-  const step = w / (monthlyRevenue.length - 1);
-  const points = monthlyRevenue.map((m, i) => [i * step, h - (m.value / max) * (h - 30)]);
-  const path = points.reduce((acc, [x, y], i) => acc + (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`), "");
-  const area = `${path} L ${w} ${h} L 0 ${h} Z`;
+function RevenueChart({ series }: { series: ApiAdminOverview["revenueSeries"] }) {
+  if (series.length === 0) {
+    return (
+      <div className="h-56 grid place-items-center text-sm text-[var(--color-fg-muted)]">
+        No revenue in the last 7 days yet.
+      </div>
+    );
+  }
+  const max = Math.max(...series.map((s) => s.revenue), 1);
   return (
-    <svg viewBox={`0 0 ${w} ${h + 24}`} className="w-full h-auto">
-      <defs>
-        <linearGradient id="rev-area" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#c9a96a" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#c9a96a" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#rev-area)" />
-      <motion.path
-        d={path}
-        stroke="#5a0f1a"
-        strokeWidth={2.4}
-        fill="none"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
-      />
-      {points.map(([x, y], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r={4} fill="#5a0f1a" />
-          <text x={x} y={h + 18} textAnchor="middle" fontSize="11" fill="#4a3f37">
-            {monthlyRevenue[i].month}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-function ChannelDonut() {
-  const total = channelMix.reduce((s, c) => s + c.value, 0);
-  const radius = 60;
-  const circumference = 2 * Math.PI * radius;
-  const colors = ["#c9a96a", "#5a0f1a", "#9d7d3c"];
-  const segments = channelMix.reduce<{ name: string; dash: number; offset: number; color: string }[]>(
-    (acc, c, i) => {
-      const dash = (c.value / total) * circumference;
-      const offset = acc.reduce((s, x) => s + x.dash, 0);
-      acc.push({ name: c.name, dash, offset, color: colors[i] });
-      return acc;
-    },
-    [],
-  );
-  return (
-    <div className="mt-5 flex justify-center">
-      <svg width={170} height={170} viewBox="0 0 170 170" className="-rotate-90">
-        <circle cx={85} cy={85} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={18} />
-        {segments.map((s, i) => (
-          <motion.circle
-            key={s.name}
-            cx={85}
-            cy={85}
-            r={radius}
-            fill="none"
-            stroke={s.color}
-            strokeWidth={18}
-            strokeDasharray={`${s.dash} ${circumference}`}
-            strokeDashoffset={-s.offset}
-            strokeLinecap="round"
-            initial={{ strokeDasharray: `0 ${circumference}` }}
-            animate={{ strokeDasharray: `${s.dash} ${circumference}` }}
-            transition={{ duration: 1, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
-          />
-        ))}
-      </svg>
+    <div className="flex items-end justify-between gap-3 h-56">
+      {series.map((s) => {
+        const h = (s.revenue / max) * 100;
+        const isMax = s.revenue === max;
+        const day = new Date(s.day).toLocaleDateString("en-IN", { weekday: "short" });
+        return (
+          <div key={s.day} className="flex-1 flex flex-col items-center gap-2">
+            <span
+              className={cn(
+                "text-[11px]",
+                isMax ? "text-[var(--color-maroon)] font-medium" : "text-[var(--color-fg-muted)]",
+              )}
+            >
+              {Math.round(s.revenue / 1000 / 100)}k
+            </span>
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: `${Math.max(4, h)}%` }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              className={cn(
+                "w-full rounded-t-xl",
+                isMax ? "gradient-maroon" : "bg-[var(--color-cream-warm)]",
+              )}
+              style={{ minHeight: 4 }}
+            />
+            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">{day}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
-

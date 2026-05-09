@@ -1,54 +1,120 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Section, Eyebrow } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { orders } from "@/lib/data/orders";
-import { formatINR, formatDate } from "@/lib/format";
+import { useLiveOrder } from "@/lib/socket/useLiveOrder";
+import type { ApiOrder, OrderStatus } from "@/lib/api/types";
+import { orders as mockOrders } from "@/lib/data/orders";
+import { formatINR as formatRupees, formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
-const journey = [
-  { id: "Placed", label: "Order placed", icon: "check" as const },
-  { id: "Confirmed", label: "Confirmed", icon: "shield" as const },
-  { id: "Packed", label: "Hand-packed", icon: "package" as const },
-  { id: "Shipped", label: "In transit", icon: "truck" as const },
-  { id: "Out for Delivery", label: "Out for delivery", icon: "map-pin" as const },
-  { id: "Delivered", label: "Delivered", icon: "sparkle" as const },
+const journey: Array<{ status: OrderStatus; label: string; icon: "check" | "shield" | "package" | "truck" | "map-pin" | "sparkle" }> = [
+  { status: "PLACED", label: "Order placed", icon: "check" },
+  { status: "CONFIRMED", label: "Confirmed", icon: "shield" },
+  { status: "PACKED", label: "Hand-packed", icon: "package" },
+  { status: "SHIPPED", label: "In transit", icon: "truck" },
+  { status: "OUT_FOR_DELIVERY", label: "Out for delivery", icon: "map-pin" },
+  { status: "DELIVERED", label: "Delivered", icon: "sparkle" },
 ];
+
+const fmtPaise = (paise: number) => formatRupees(paise / 100);
 
 export default function TrackingClient() {
   const sp = useSearchParams();
-  const initialId = sp.get("order") ?? orders[0].id;
-  const [orderId, setOrderId] = useState(initialId);
-  const [search, setSearch] = useState(initialId);
+  const initial = sp.get("order") ?? "";
+  const isDemo = sp.get("demo") === "1" || initial === "";
+  const [search, setSearch] = useState(initial);
+  const [tracked, setTracked] = useState(initial);
 
-  const order = orders.find((o) => o.id === orderId) ?? orders[0];
-  const currentStep = journey.findIndex((j) => j.id === order.status);
-  const progress = currentStep >= 0 ? currentStep : 0;
+  // Live API + socket subscription. Disabled in demo / no-arg mode where
+  // we just show a representative mock order so the page always demos well.
+  const { order, loading, error } = useLiveOrder(isDemo ? null : tracked);
+
+  // Pulse a "live update" indicator briefly whenever the status changes.
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (!order) return;
+    setPulse(true);
+    const t = setTimeout(() => setPulse(false), 1200);
+    return () => clearTimeout(t);
+  }, [order?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Demo fallback — uses the local mock order so the UI is fully populated
+  // even without authentication or a real backend in the demo screenshot.
+  const demoOrder = useMemo(() => {
+    const m = mockOrders[0];
+    return {
+      number: m.id,
+      status: (m.status === "Out for Delivery"
+        ? "OUT_FOR_DELIVERY"
+        : m.status.toUpperCase()) as OrderStatus,
+      placedAt: m.placedAt,
+      expectedAt: m.expectedDelivery ?? null,
+      total: m.total * 100,
+      items: m.items.map((it) => ({
+        productId: it.productId,
+        title: it.name,
+        imageUrl: it.image,
+        quantity: it.qty,
+        unitPrice: it.price * 100,
+        lineTotal: it.price * it.qty * 100,
+      })),
+      customerName: m.customer,
+      address: m.address ?? null,
+      awb: m.trackingId ?? null,
+      carrier: null as string | null,
+    };
+  }, []);
+
+  const view = order
+    ? {
+        number: order.number,
+        status: order.status,
+        placedAt: order.placedAt,
+        expectedAt: order.shipment?.expectedAt ?? null,
+        total: order.total,
+        items: order.items.map((it) => ({
+          productId: it.productId,
+          title: it.title,
+          imageUrl: it.imageUrl ?? "",
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          lineTotal: it.lineTotal,
+        })),
+        customerName:
+          [order.user?.firstName, order.user?.lastName].filter(Boolean).join(" ") || "Customer",
+        address: null as string | null,
+        awb: order.shipment?.awbNumber ?? null,
+        carrier: order.shipment?.carrier ?? null,
+      }
+    : demoOrder;
+
+  const progress = Math.max(0, journey.findIndex((j) => j.status === view.status));
 
   return (
     <Section className="!pt-8 !pb-24">
       <Eyebrow>Track</Eyebrow>
       <h1 className="mt-3 font-[family-name:var(--font-display)] text-4xl md:text-5xl">Where is my saree?</h1>
       <p className="mt-2 text-[var(--color-fg-muted)] max-w-xl">
-        Enter your order ID to follow your heirloom from atelier to doorstep.
+        Enter your order number to follow your heirloom from atelier to doorstep — updates arrive live.
       </p>
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setOrderId(search.trim().toUpperCase());
+          setTracked(search.trim().toUpperCase());
         }}
         className="mt-8 flex gap-3 max-w-xl"
       >
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="ORD-10472"
+          placeholder="RV-10042"
           className="flex-1 px-5 py-3.5 rounded-full bg-[var(--color-cream)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-maroon)]/40"
         />
         <Button type="submit" variant="primary" iconRight={<Icon name="arrow-right" size={16} />}>
@@ -56,20 +122,48 @@ export default function TrackingClient() {
         </Button>
       </form>
 
-      <div className="mt-12 p-7 md:p-10 rounded-3xl bg-[var(--color-surface)] luxury-shadow ring-1 ring-[rgba(90,15,26,0.06)]">
+      {error && (
+        <p className="mt-4 text-sm text-[var(--color-maroon)]">
+          Couldn't fetch this order — showing the most recent status we have.
+        </p>
+      )}
+
+      <div className="mt-10 p-7 md:p-10 rounded-3xl bg-[var(--color-surface)] luxury-shadow ring-1 ring-[rgba(90,15,26,0.06)]">
         <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[rgba(90,15,26,0.08)]">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">Order</p>
-            <p className="font-[family-name:var(--font-display)] text-2xl">{order.id}</p>
-            <p className="text-xs text-[var(--color-fg-muted)]">Placed {formatDate(order.placedAt)}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">Order</p>
+              {!isDemo && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] px-2 py-0.5 rounded-full",
+                    pulse
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-[var(--color-cream)] text-[var(--color-fg-muted)]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      pulse ? "bg-emerald-500 animate-pulse" : "bg-[var(--color-fg-muted)]/60",
+                    )}
+                  />
+                  Live
+                </span>
+              )}
+            </div>
+            <p className="font-[family-name:var(--font-display)] text-2xl">{view.number}</p>
+            <p className="text-xs text-[var(--color-fg-muted)]">Placed {formatDate(view.placedAt)}</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">Expected</p>
             <p className="font-[family-name:var(--font-display)] text-2xl text-[var(--color-maroon-deep)]">
-              {order.expectedDelivery ? formatDate(order.expectedDelivery) : "TBA"}
+              {view.expectedAt ? formatDate(view.expectedAt) : "TBA"}
             </p>
-            {order.trackingId && (
-              <p className="text-xs text-[var(--color-fg-muted)]">AWB {order.trackingId}</p>
+            {view.awb && (
+              <p className="text-xs text-[var(--color-fg-muted)]">
+                {view.carrier ? `${view.carrier} · ` : ""}AWB {view.awb}
+              </p>
             )}
           </div>
         </div>
@@ -87,11 +181,11 @@ export default function TrackingClient() {
             {journey.map((j, i) => {
               const reached = i <= progress;
               return (
-                <div key={j.id} className="flex flex-col items-center text-center">
+                <div key={j.status} className="flex flex-col items-center text-center">
                   <motion.div
                     initial={{ scale: 0.6, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                    transition={{ duration: 0.5, delay: i * 0.08 }}
                     className={cn(
                       "h-10 w-10 grid place-items-center rounded-full ring-2 ring-[var(--color-ivory)]",
                       reached
@@ -101,7 +195,12 @@ export default function TrackingClient() {
                   >
                     <Icon name={j.icon} size={16} />
                   </motion.div>
-                  <p className={cn("mt-2 text-[10px] uppercase tracking-[0.24em]", reached ? "text-[var(--color-maroon)]" : "text-[var(--color-fg-muted)]")}>
+                  <p
+                    className={cn(
+                      "mt-2 text-[10px] uppercase tracking-[0.24em]",
+                      reached ? "text-[var(--color-maroon)]" : "text-[var(--color-fg-muted)]",
+                    )}
+                  >
                     {j.label}
                   </p>
                 </div>
@@ -113,30 +212,38 @@ export default function TrackingClient() {
         <div className="mt-12 grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-3">
             <h3 className="font-[family-name:var(--font-display)] text-xl mb-3">Items in this order</h3>
-            {order.items.map((it) => (
-              <div key={it.productId} className="flex gap-4 p-4 rounded-xl bg-[var(--color-cream)]">
-                <div className="relative h-20 w-20 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image src={it.image} alt={it.name} fill sizes="100px" className="object-cover" />
+            {loading && !order && !isDemo ? (
+              <p className="text-sm text-[var(--color-fg-muted)]">Loading order…</p>
+            ) : (
+              view.items.map((it) => (
+                <div key={it.productId} className="flex gap-4 p-4 rounded-xl bg-[var(--color-cream)]">
+                  <div className="relative h-20 w-20 rounded-lg overflow-hidden flex-shrink-0">
+                    {it.imageUrl && (
+                      <Image src={it.imageUrl} alt={it.title} fill sizes="100px" className="object-cover" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{it.title}</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Qty {it.quantity}</p>
+                    <p className="text-sm text-[var(--color-maroon-deep)] mt-1">{fmtPaise(it.lineTotal)}</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">{it.name}</p>
-                  <p className="text-xs text-[var(--color-fg-muted)]">Qty {it.qty}</p>
-                  <p className="text-sm text-[var(--color-maroon-deep)] mt-1">{formatINR(it.price * it.qty)}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <div className="p-6 rounded-xl bg-[var(--color-noir)] text-[var(--color-ivory)] space-y-4">
             <div>
               <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-bright)] mb-2">Shipping to</p>
-              <p className="text-sm">{order.customer}</p>
-              <p className="text-xs text-[var(--color-ivory)]/70 mt-1">{order.address ?? "Address on file"}</p>
+              <p className="text-sm">{view.customerName}</p>
+              <p className="text-xs text-[var(--color-ivory)]/70 mt-1">{view.address ?? "Address on file"}</p>
             </div>
             <div className="h-px bg-white/10" />
             <div>
               <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-bright)] mb-2">Order total</p>
-              <p className="font-[family-name:var(--font-display)] text-3xl text-gradient-gold">{formatINR(order.total)}</p>
+              <p className="font-[family-name:var(--font-display)] text-3xl text-gradient-gold">
+                {fmtPaise(view.total)}
+              </p>
             </div>
             <a
               href="https://wa.me/919999999999"

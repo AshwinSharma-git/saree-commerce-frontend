@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/cn";
 
 const links = [
@@ -22,7 +23,9 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [accountMenu, setAccountMenu] = useState(false);
   const { cartCount, wishlistCount } = useShop();
+  const { user, logout, isAdmin } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -185,16 +188,84 @@ export function Navbar() {
                 </span>
               )}
             </Link>
-            <Link
-              href="/account"
-              className={cn(
-                "hidden sm:inline-grid p-2.5 rounded-full transition-colors focus-ring",
-                overHero ? "hover:bg-white/15" : "hover:bg-[var(--color-cream)]",
-              )}
-              aria-label="Account"
-            >
-              <Icon name="user" size={20} />
-            </Link>
+            <div className="hidden sm:block relative">
+              <button
+                type="button"
+                onClick={() => setAccountMenu((v) => !v)}
+                className={cn(
+                  "p-2.5 rounded-full transition-colors focus-ring inline-flex items-center gap-2",
+                  overHero ? "hover:bg-white/15" : "hover:bg-[var(--color-cream)]",
+                )}
+                aria-label={user ? "Account menu" : "Sign in"}
+                aria-expanded={accountMenu}
+              >
+                {user ? (
+                  <span className="h-7 w-7 rounded-full grid place-items-center gradient-maroon text-[10px] font-medium text-[var(--color-gold-bright)]">
+                    {(user.firstName?.charAt(0) ?? user.email?.charAt(0) ?? "A").toUpperCase()}
+                  </span>
+                ) : (
+                  <Icon name="user" size={20} />
+                )}
+              </button>
+              <AnimatePresence>
+                {accountMenu && (
+                  <>
+                    <motion.div
+                      className="fixed inset-0 z-[50]"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setAccountMenu(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute right-0 mt-2 w-60 z-[60] p-2 rounded-2xl bg-[var(--color-ivory)] ring-1 ring-[rgba(90,15,26,0.12)] shadow-[0_24px_60px_rgba(61,8,16,0.18)] text-[var(--color-noir)]"
+                    >
+                      {user ? (
+                        <>
+                          <div className="px-3 pt-2 pb-3 border-b border-[rgba(90,15,26,0.08)]">
+                            <p className="text-sm font-medium truncate">
+                              {[user.firstName, user.lastName].filter(Boolean).join(" ") || "Account"}
+                            </p>
+                            <p className="text-xs text-[var(--color-fg-muted)] truncate">{user.email}</p>
+                          </div>
+                          <MenuLink href="/account" icon="user">My account</MenuLink>
+                          <MenuLink href="/wishlist" icon="heart">Wishlist</MenuLink>
+                          <MenuLink href="/tracking" icon="truck">Track an order</MenuLink>
+                          {isAdmin && (
+                            <MenuLink href="/admin/dashboard" icon="dashboard">
+                              Atelier console
+                            </MenuLink>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountMenu(false);
+                              void logout();
+                            }}
+                            className="w-full mt-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--color-cream)] text-[var(--color-maroon)]"
+                          >
+                            <Icon name="logout" size={14} /> Sign out
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <MenuLink href="/login" icon="user">Sign in</MenuLink>
+                          <MenuLink href="/signup" icon="sparkle">Create account</MenuLink>
+                          <div className="my-1 h-px bg-[rgba(90,15,26,0.08)]" />
+                          <MenuLink href="/admin/login" icon="lock">
+                            Atelier console
+                          </MenuLink>
+                        </>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             <Link
               href="/cart"
               className={cn(
@@ -250,15 +321,42 @@ export function Navbar() {
                     {l.label}
                   </Link>
                 ))}
-                <Link href="/account" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
-                  My Account
-                </Link>
-                <Link href="/tracking" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
-                  Track Order
-                </Link>
-                <Link href="/admin/dashboard" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
-                  Admin Dashboard
-                </Link>
+                {user ? (
+                  <>
+                    <Link href="/account" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
+                      My Account
+                    </Link>
+                    <Link href="/tracking" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
+                      Track Order
+                    </Link>
+                    {isAdmin && (
+                      <Link href="/admin/dashboard" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
+                        Atelier console
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void logout();
+                      }}
+                      className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)] text-[var(--color-maroon)] text-left"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/login" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
+                      Sign in
+                    </Link>
+                    <Link href="/signup" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)]">
+                      Create account
+                    </Link>
+                    <Link href="/admin/login" className="py-3 text-lg border-b border-[rgba(201,169,106,0.18)] text-[var(--color-fg-muted)]">
+                      Atelier console
+                    </Link>
+                  </>
+                )}
               </nav>
               <div className="mt-auto pt-8">
                 <a
@@ -277,6 +375,26 @@ export function Navbar() {
       {/* Search overlay */}
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
+  );
+}
+
+function MenuLink({
+  href,
+  icon,
+  children,
+}: {
+  href: string;
+  icon: React.ComponentProps<typeof Icon>["name"];
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--color-cream)] text-[var(--color-noir)]"
+    >
+      <Icon name={icon} size={14} className="text-[var(--color-fg-muted)]" />
+      <span>{children}</span>
+    </Link>
   );
 }
 

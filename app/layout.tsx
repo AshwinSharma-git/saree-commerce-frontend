@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ShopProvider } from "@/lib/store/shop-store";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Rājavastra · Heritage Sarees, Hand-woven in Bharat",
@@ -24,7 +25,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--color-ivory)] text-[var(--color-noir)]">
-        <ShopProvider>{children}</ShopProvider>
+        <AuthProvider>
+          <ShopProvider>{children}</ShopProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -8,12 +8,17 @@ import { Section, Eyebrow } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { ProductCard } from "@/components/product/ProductCard";
+import { WhatsAppActions } from "@/components/product/WhatsAppActions";
 import { useShop } from "@/lib/store/shop-store";
 import { formatINR } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { Product } from "@/types";
 
 const sizes = ["XS", "S", "M", "L", "XL"];
+
+const SITE_URL =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL) ||
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 export default function ProductDetail({ product, related }: { product: Product; related: Product[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -217,12 +222,11 @@ export default function ProductDetail({ product, related }: { product: Product; 
               ))}
             </div>
 
-            <a
-              href={`https://wa.me/919999999999?text=Hi!%20I%20would%20like%20to%20enquire%20about%20${encodeURIComponent(product.name)}%20(${product.code})`}
-              className="mt-4 flex items-center justify-center gap-2 text-sm text-[var(--color-maroon)] py-3 rounded-xl ring-1 ring-[rgba(90,15,26,0.18)] hover:bg-[var(--color-cream)]"
-            >
-              <Icon name="whatsapp" size={16} /> Enquire on WhatsApp
-            </a>
+            <WhatsAppActions
+              code={product.code}
+              title={product.name}
+              productUrl={`${SITE_URL}/product/${product.code}`}
+            />
           </div>
         </div>
 
