@@ -11,7 +11,7 @@ import type { Product } from "@/types";
 
 export function ProductCard({ product, priority }: { product: Product; priority?: boolean }) {
   const { addToCart, toggleWishlist, isInWishlist } = useShop();
-  const wished = isInWishlist(product.code);
+  const wished = isInWishlist(product.id);
   const discount =
     product.originalPrice && product.originalPrice > product.price
       ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -58,7 +58,7 @@ export function ProductCard({ product, priority }: { product: Product; priority?
         {/* wishlist */}
         <button
           type="button"
-          onClick={() => toggleWishlist(product.code)}
+          onClick={() => toggleWishlist(product.id)}
           className={cn(
             "absolute top-4 right-4 h-10 w-10 grid place-items-center rounded-full backdrop-blur-md transition-all focus-ring",
             wished
@@ -74,7 +74,7 @@ export function ProductCard({ product, priority }: { product: Product; priority?
         <div className="absolute bottom-4 left-4 right-4 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
           <button
             type="button"
-            onClick={() => addToCart(product.code)}
+            onClick={() => addToCart(product.id)}
             className="w-full py-3 px-4 rounded-full gradient-maroon text-[var(--color-ivory)] text-xs uppercase tracking-[0.28em] font-medium flex items-center justify-center gap-2 hover:brightness-110 transition-all"
           >
             <Icon name="bag" size={14} /> Add to Bag

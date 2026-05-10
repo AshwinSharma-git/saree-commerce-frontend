@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,13 +11,11 @@ import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
-import { productsApi } from "@/lib/api/products";
-import { adaptProduct } from "@/lib/api/adapt";
+import { products } from "@/lib/data/products";
 import { ordersApi } from "@/lib/api/orders";
 import { ApiError } from "@/lib/api/client";
 import { formatINR } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Product } from "@/types";
 
 const steps = ["Address", "Delivery", "Payment"] as const;
 
@@ -31,63 +29,12 @@ export default function CheckoutPage() {
 
 function CheckoutInner() {
   const router = useRouter();
-  const { cart, clearCart, removeFromCart, hydrated } = useShop();
+  const { cart, clearCart } = useShop();
   const { user } = useAuth();
-  const cartCodes = useMemo(() => Object.keys(cart), [cart]);
-  const [resolved, setResolved] = useState<Record<string, Product>>({});
-  // Map of cart code → real DB product id (cuid). Needed because the orders
-  // API accepts ids only, not codes. We collect them as the by-code fetches
-  // complete, then submit them at Pay time.
-  const [liveIdByCode, setLiveIdByCode] = useState<Record<string, string>>({});
-  const [attempted, setAttempted] = useState<Set<string>>(new Set());
-  const resolving = cartCodes.some((c) => !resolved[c] && !attempted.has(c));
-
-  useEffect(() => {
-    let cancelled = false;
-    const missing = cartCodes.filter((c) => !attempted.has(c));
-    if (missing.length === 0) return;
-    setAttempted((prev) => {
-      const next = new Set(prev);
-      missing.forEach((c) => next.add(c));
-      return next;
-    });
-
-    const resolveOne = async (code: string) => {
-      const inner = (async () => {
-        const api = await productsApi
-          .byCode(code)
-          // legacy: may be a cuid persisted before we switched to codes
-          .catch(() => productsApi.byId(code))
-          .catch(() => null);
-        return api ? { code, api } : { code, api: null };
-      })();
-      const timeout = new Promise<{ code: string; api: null }>((resolve) =>
-        setTimeout(() => resolve({ code, api: null }), 6_000),
-      );
-      return Promise.race([inner, timeout]);
-    };
-
-    Promise.all(missing.map(resolveOne)).then((results) => {
-      if (cancelled) return;
-      const ok: Record<string, Product> = {};
-      const ids: Record<string, string> = {};
-      results.forEach(({ code, api }) => {
-        if (api) {
-          ok[code] = adaptProduct(api);
-          ids[code] = api.id;
-        }
-      });
-      if (Object.keys(ok).length > 0) setResolved((prev) => ({ ...prev, ...ok }));
-      if (Object.keys(ids).length > 0) setLiveIdByCode((prev) => ({ ...prev, ...ids }));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [cartCodes, attempted]);
-
-  const items = cartCodes
-    .map((code) => (resolved[code] ? { product: resolved[code], qty: cart[code], code } : null))
-    .filter((x): x is { product: Product; qty: number; code: string } => x !== null);
+  const items = Object.entries(cart).map(([id, qty]) => {
+    const product = products.find((p) => p.id === id)!;
+    return { product, qty };
+  }).filter((x) => x.product);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = 0;
@@ -100,16 +47,6 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  if (!hydrated || (items.length === 0 && cartCodes.length > 0 && resolving)) {
-    return (
-      <Section className="!py-32 text-center">
-        <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
-          <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
-          <span className="text-sm tracking-wide">Loading your bag…</span>
-        </div>
-      </Section>
-    );
-  }
   if (items.length === 0) {
     return (
       <Section className="!py-32 text-center">
@@ -134,46 +71,20 @@ function CheckoutInner() {
       return;
     }
 
-    // Build payload using the LIVE DB id we resolved for each cart code.
-    // Items whose code never resolved get dropped — they shouldn't ever be
-    // here because the Pay button is disabled while resolving, but the
-    // safety net prevents 400s from the orders API.
-    const payload = items
-      .map((it) => ({ code: it.code, liveId: liveIdByCode[it.code], qty: it.qty }))
-      .filter((x) => Boolean(x.liveId));
-    const dropped = items.length - payload.length;
-
-    if (payload.length === 0) {
-      setSubmitError(
-        "None of the items in your bag could be found in the catalogue. Please clear your bag and try again.",
-      );
-      setSubmitting(false);
-      return;
-    }
-
     try {
       const order = await ordersApi.create({
         channel: "WEB",
-        items: payload.map((it) => ({
-          productId: it.liveId as string,
+        items: items.map((it) => ({
+          productId: it.product.id,
           quantity: it.qty,
         })),
-      });
-      // Clean up any unresolved orphan codes so they don't leak into the
-      // next session.
-      items.forEach((it) => {
-        if (!liveIdByCode[it.code]) removeFromCart(it.code);
       });
       clearCart();
       router.push(`/tracking?order=${encodeURIComponent(order.number)}`);
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Could not place order. Please try again.";
-      setSubmitError(
-        dropped > 0
-          ? `${message} (${dropped} item${dropped === 1 ? "" : "s"} were unavailable and skipped.)`
-          : message,
-      );
+      setSubmitError(message);
       setSubmitting(false);
     }
   };
@@ -338,13 +249,6 @@ function CheckoutInner() {
                   </div>
                 )}
 
-                {resolving && (
-                  <p className="mt-5 px-4 py-3 rounded-xl bg-[var(--color-cream)] text-[var(--color-fg-muted)] text-xs flex items-center gap-2" role="status">
-                    <span className="h-3 w-3 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
-                    Verifying availability of items in your bag…
-                  </p>
-                )}
-
                 {submitError && (
                   <p className="mt-5 px-4 py-3 rounded-xl bg-[var(--color-maroon)]/10 text-[var(--color-maroon)] text-sm" role="alert">
                     {submitError}
@@ -359,13 +263,8 @@ function CheckoutInner() {
 
                 <div className="mt-7 flex justify-between">
                   <Button variant="secondary" onClick={() => setStep(1)} iconLeft={<Icon name="arrow-left" size={16} />}>Back</Button>
-                  <Button
-                    variant="gold"
-                    onClick={handlePlaceOrder}
-                    loading={submitting}
-                    disabled={resolving || submitting}
-                  >
-                    {submitting ? "Placing order…" : resolving ? "Verifying…" : `Pay ${formatINR(total)} (demo)`}
+                  <Button variant="gold" onClick={handlePlaceOrder} loading={submitting}>
+                    {submitting ? "Placing order…" : `Pay ${formatINR(total)} (demo)`}
                   </Button>
                 </div>
               </motion.section>
@@ -379,7 +278,7 @@ function CheckoutInner() {
             <h3 className="font-[family-name:var(--font-display)] text-xl mb-4">Your bag</h3>
             <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 hide-scrollbar">
               {items.map(({ product, qty }) => (
-                <div key={product.code} className="flex gap-3">
+                <div key={product.id} className="flex gap-3">
                   <div className="relative h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
                     <Image src={product.image} alt={product.name} fill sizes="100px" className="object-cover" />
                   </div>
