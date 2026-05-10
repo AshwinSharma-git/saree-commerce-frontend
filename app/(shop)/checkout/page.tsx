@@ -62,7 +62,7 @@ function CheckoutInner() {
         return api ? { code, api } : { code, api: null };
       })();
       const timeout = new Promise<{ code: string; api: null }>((resolve) =>
-        setTimeout(() => resolve({ code, api: null }), 12_000),
+        setTimeout(() => resolve({ code, api: null }), 6_000),
       );
       return Promise.race([inner, timeout]);
     };

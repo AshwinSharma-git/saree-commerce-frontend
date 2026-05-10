@@ -87,14 +87,23 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // hydrate from localStorage
+  // hydrate from localStorage. Cart/wishlist keys are now product CODES
+  // (RV-NNNN). Anything that doesn't match that shape is from an older
+  // build (static p_001 ids, raw cuids) and gets dropped at hydrate-time
+  // so the cart/wishlist pages don't waste a round-trip + spinner on
+  // entries that can never resolve.
   useEffect(() => {
     try {
       const raw = localStorage.getItem("rv:shop");
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<ShopState>;
-        dispatch({ type: "HYDRATE", state: { cart: parsed.cart ?? {}, wishlist: parsed.wishlist ?? [] } });
-      }
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<ShopState>;
+      const isCode = (s: string) => /^RV[-_]?\d{2,5}$/i.test(s);
+      const cleanCart: Record<string, number> = {};
+      Object.entries(parsed.cart ?? {}).forEach(([k, v]) => {
+        if (isCode(k)) cleanCart[k] = v;
+      });
+      const cleanWishlist = (parsed.wishlist ?? []).filter(isCode);
+      dispatch({ type: "HYDRATE", state: { cart: cleanCart, wishlist: cleanWishlist } });
     } catch {}
   }, []);
 

@@ -56,7 +56,7 @@ export default function CartPage() {
         .then((api) => adaptProduct(api))
         .catch(() => null as Product | null);
       const timeout = new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), 12_000),
+        setTimeout(() => resolve(null), 6_000),
       );
       return Promise.race([inner, timeout]);
     };
@@ -119,6 +119,12 @@ export default function CartPage() {
           <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
           <span className="text-sm tracking-wide">Loading your bag…</span>
         </div>
+        <p className="mt-4 text-xs text-[var(--color-fg-muted)]">
+          Taking too long?{" "}
+          <button onClick={clearCart} className="underline text-[var(--color-maroon)]">
+            Clear bag and start fresh
+          </button>
+        </p>
       </Section>
     );
   }

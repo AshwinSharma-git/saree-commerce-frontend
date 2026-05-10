@@ -48,7 +48,7 @@ function WishlistInner() {
         .then((api) => adaptProduct(api))
         .catch(() => null as Product | null);
       const timeout = new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), 12_000),
+        setTimeout(() => resolve(null), 6_000),
       );
       return Promise.race([inner, timeout]);
     };
