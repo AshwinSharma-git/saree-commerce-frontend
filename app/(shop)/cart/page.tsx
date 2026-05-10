@@ -8,115 +8,111 @@ import { Section, Eyebrow } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
-import { products as staticProducts } from "@/lib/data/products";
 import { productsApi } from "@/lib/api/products";
 import { adaptProduct } from "@/lib/api/adapt";
 import { formatINR } from "@/lib/format";
 import type { Product } from "@/types";
 
+/**
+ * Cart contract:
+ *   - Cart keys are product CODES (RV-2401, RV-2402, …) — stable across
+ *     static seed data and live DB rows. This is the SAME identifier the
+ *     customer sees on Instagram / WhatsApp / PDP, so the cart works
+ *     identically no matter where the item was added from.
+ *   - All product data on this page is fetched live from /products/code/:code.
+ *   - Stale cart entries (codes the API can't find) are auto-removed after a
+ *     12 s timeout so a cold-started backend can't trap the user on a spinner.
+ */
 export default function CartPage() {
   const { cart, setQty, removeFromCart, clearCart } = useShop();
-  const cartIds = useMemo(() => Object.keys(cart), [cart]);
-  const [fetched, setFetched] = useState<Record<string, Product>>({});
-  // Ids the API explicitly couldn't resolve (404). Tracked separately so
-  // the auto-prune doesn't race against in-flight fetches and delete IDs
-  // that just haven't been resolved YET.
-  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
-  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
-  const resolving = cartIds.some(
-    (id) => !staticProducts.find((p) => p.id === id) && !fetched[id] && !failedIds.has(id),
+  const cartCodes = useMemo(() => Object.keys(cart), [cart]);
+  const [resolved, setResolved] = useState<Record<string, Product>>({});
+  const [failedCodes, setFailedCodes] = useState<Set<string>>(new Set());
+  const [attempted, setAttempted] = useState<Set<string>>(new Set());
+
+  const resolving = cartCodes.some(
+    (code) => !resolved[code] && !failedCodes.has(code),
   );
 
-  // Resolve any cart ids that aren't in the static fallback by hitting the
-  // live products API. Skips IDs we've already tried (success OR fail).
   useEffect(() => {
     let cancelled = false;
-    const missing = cartIds.filter(
-      (id) =>
-        !staticProducts.find((p) => p.id === id) &&
-        !fetched[id] &&
-        !attemptedIds.has(id),
-    );
+    const missing = cartCodes.filter((c) => !attempted.has(c));
     if (missing.length === 0) return;
-    setAttemptedIds((prev) => {
+    setAttempted((prev) => {
       const next = new Set(prev);
-      missing.forEach((id) => next.add(id));
+      missing.forEach((c) => next.add(c));
       return next;
     });
-    // Race each fetch against a 12s timeout — Railway cold starts can take
-    // ~10s and we don't want the spinner stuck forever if the backend is
-    // genuinely down.
-    const withTimeout = <T,>(p: Promise<T>): Promise<T | null> =>
-      Promise.race([
-        p.catch(() => null),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
-      ]);
 
-    Promise.all(
-      missing.map((id) =>
-        withTimeout(productsApi.byId(id).catch(() => productsApi.byCode(id))),
-      ),
-    )
+    // Race each fetch against a 12 s timeout — Railway cold starts can
+    // take ~10 s and we don't want the spinner stuck if the backend is down.
+    const fetchOne = (code: string): Promise<Product | null> => {
+      const inner = productsApi
+        .byCode(code)
+        // Backwards compat: some users may have legacy cuid keys persisted
+        // from before we switched to codes. Try byId as a fallback so they
+        // don't lose those items on the next visit.
+        .catch(() => productsApi.byId(code))
+        .then((api) => adaptProduct(api))
+        .catch(() => null as Product | null);
+      const timeout = new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), 12_000),
+      );
+      return Promise.race([inner, timeout]);
+    };
+
+    Promise.all(missing.map(fetchOne))
       .then((results) => {
         if (cancelled) return;
-        const fetchedNext: Record<string, Product> = {};
-        const failedNext: string[] = [];
-        results.forEach((api, i) => {
-          const id = missing[i];
-          if (api) fetchedNext[id] = adaptProduct(api);
-          else failedNext.push(id);
+        const ok: Record<string, Product> = {};
+        const bad: string[] = [];
+        results.forEach((p, i) => {
+          if (p) ok[missing[i]] = p;
+          else bad.push(missing[i]);
         });
-        if (Object.keys(fetchedNext).length > 0) {
-          setFetched((prev) => ({ ...prev, ...fetchedNext }));
-        }
-        if (failedNext.length > 0) {
-          setFailedIds((prev) => {
+        if (Object.keys(ok).length > 0) setResolved((prev) => ({ ...prev, ...ok }));
+        if (bad.length > 0) {
+          setFailedCodes((prev) => {
             const next = new Set(prev);
-            failedNext.forEach((id) => next.add(id));
+            bad.forEach((c) => next.add(c));
             return next;
           });
         }
       })
       .catch(() => {
-        // Belt-and-braces: if Promise.all itself rejects (shouldn't, since
-        // each member catches), still mark everything as failed so the
-        // spinner gives up instead of blocking the user forever.
         if (cancelled) return;
-        setFailedIds((prev) => {
+        setFailedCodes((prev) => {
           const next = new Set(prev);
-          missing.forEach((id) => next.add(id));
+          missing.forEach((c) => next.add(c));
           return next;
         });
       });
+
     return () => {
       cancelled = true;
     };
-  }, [cartIds, fetched, attemptedIds]);
+  }, [cartCodes, attempted]);
 
-  const items = cartIds
-    .map((id) => {
-      const product = staticProducts.find((p) => p.id === id) ?? fetched[id];
-      return product ? { product, qty: cart[id] } : null;
-    })
-    .filter((x): x is { product: Product; qty: number } => x !== null);
-
-  // Auto-prune ONLY ids the API definitively couldn't resolve. Never prune
-  // ids that haven't been attempted yet — that was the bug that caused
-  // freshly-added items to vanish before the fetch even started.
+  // Auto-prune codes the API definitively couldn't resolve.
   useEffect(() => {
-    failedIds.forEach((id) => {
-      if (cart[id] !== undefined) removeFromCart(id);
+    failedCodes.forEach((code) => {
+      if (cart[code] !== undefined) removeFromCart(code);
     });
-  }, [failedIds, cart, removeFromCart]);
+  }, [failedCodes, cart, removeFromCart]);
+
+  const items = cartCodes
+    .map((code) => (resolved[code] ? { product: resolved[code], qty: cart[code], code } : null))
+    .filter((x): x is { product: Product; qty: number; code: string } => x !== null);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = subtotal > 0 && subtotal < 5000 ? 250 : 0;
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + shipping + tax;
 
-  // Show loading while we resolve cart ids — otherwise the page flashes
-  // the "empty bag" state before the API call lands.
-  if (items.length === 0 && cartIds.length > 0 && resolving) {
+  // Show inline loader only when we have nothing to render yet AND something
+  // is still in-flight. Once any item resolves, we render the cart with
+  // partial data — feels much faster than the all-or-nothing spinner.
+  if (items.length === 0 && cartCodes.length > 0 && resolving) {
     return (
       <Section className="!py-32 text-center">
         <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
@@ -140,16 +136,16 @@ export default function CartPage() {
 
       <div className="grid lg:grid-cols-12 gap-10">
         <div className="lg:col-span-8 space-y-5">
-          {items.map(({ product, qty }, i) => (
+          {items.map(({ product, qty, code }, i) => (
             <motion.div
-              key={product.id}
+              key={code}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: i * 0.05 }}
               className="flex flex-col sm:flex-row gap-5 p-5 rounded-2xl bg-[var(--color-surface)] luxury-shadow-soft ring-1 ring-[rgba(90,15,26,0.06)]"
             >
               <Link
-                href={`/product/${product.id}`}
+                href={`/product/${product.code}`}
                 className="relative h-40 sm:h-44 sm:w-40 flex-shrink-0 rounded-xl overflow-hidden bg-[var(--color-cream)]"
               >
                 <Image src={product.image} alt={product.name} fill sizes="200px" className="object-cover" />
@@ -159,12 +155,12 @@ export default function CartPage() {
                   <div className="flex justify-between items-start gap-3">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--color-gold-deep)]">{product.collection}</p>
-                      <Link href={`/product/${product.id}`} className="font-[family-name:var(--font-display)] text-xl text-[var(--color-noir)] hover:text-[var(--color-maroon)]">
+                      <Link href={`/product/${product.code}`} className="font-[family-name:var(--font-display)] text-xl text-[var(--color-noir)] hover:text-[var(--color-maroon)]">
                         {product.name}
                       </Link>
                     </div>
                     <button
-                      onClick={() => removeFromCart(product.id)}
+                      onClick={() => removeFromCart(code)}
                       className="p-2 -mt-1 -mr-1 text-[var(--color-fg-muted)] hover:text-[var(--color-maroon)] transition-colors"
                       aria-label="Remove"
                     >
@@ -181,14 +177,14 @@ export default function CartPage() {
                 <div className="mt-4 flex justify-between items-end">
                   <div className="flex items-center rounded-full ring-1 ring-[rgba(90,15,26,0.18)]">
                     <button
-                      onClick={() => setQty(product.id, qty - 1)}
+                      onClick={() => setQty(code, qty - 1)}
                       className="px-3 py-2 hover:bg-[var(--color-cream)] transition-colors rounded-l-full"
                     >
                       <Icon name="minus" size={12} />
                     </button>
                     <span className="px-4 text-sm font-medium min-w-[2.5rem] text-center">{qty}</span>
                     <button
-                      onClick={() => setQty(product.id, qty + 1)}
+                      onClick={() => setQty(code, qty + 1)}
                       className="px-3 py-2 hover:bg-[var(--color-cream)] transition-colors rounded-r-full"
                     >
                       <Icon name="plus" size={12} />

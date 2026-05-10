@@ -26,9 +26,13 @@ export default function ProductDetailLoader({ id }: { id: string }) {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      // Try the live API first.
+      // Try the live API first. If the URL segment looks like a saree
+      // code (RV-NNNN), hit byCode directly to avoid a wasted byId 404.
+      const looksLikeCode = /^RV[-_]?\d{2,5}$/i.test(id);
       try {
-        const apiProduct = await productsApi.byId(id).catch(() => productsApi.byCode(id));
+        const apiProduct = looksLikeCode
+          ? await productsApi.byCode(id).catch(() => productsApi.byId(id))
+          : await productsApi.byId(id).catch(() => productsApi.byCode(id));
         if (cancelled) return;
         const product = adaptProduct(apiProduct);
         const relatedRaw = await productsApi.related(apiProduct.id, 4).catch(() => []);

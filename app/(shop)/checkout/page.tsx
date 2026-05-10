@@ -11,7 +11,6 @@ import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
-import { products as staticProducts } from "@/lib/data/products";
 import { productsApi } from "@/lib/api/products";
 import { adaptProduct } from "@/lib/api/adapt";
 import { ordersApi } from "@/lib/api/orders";
@@ -34,82 +33,61 @@ function CheckoutInner() {
   const router = useRouter();
   const { cart, clearCart, removeFromCart } = useShop();
   const { user } = useAuth();
-  const cartIds = useMemo(() => Object.keys(cart), [cart]);
-  const [fetched, setFetched] = useState<Record<string, Product>>({});
-  // Map of cart-key (id used in the cart store) → real DB product id.
-  // For live products this is identity; for static p_xxx ids we resolve
-  // by code to the actual DB product so /orders/create accepts them.
-  const [liveIdByCartKey, setLiveIdByCartKey] = useState<Record<string, string>>({});
-  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
-  const resolving = cartIds.some(
-    (id) => !fetched[id] && !staticProducts.find((p) => p.id === id) && !attemptedIds.has(id),
-  );
+  const cartCodes = useMemo(() => Object.keys(cart), [cart]);
+  const [resolved, setResolved] = useState<Record<string, Product>>({});
+  // Map of cart code → real DB product id (cuid). Needed because the orders
+  // API accepts ids only, not codes. We collect them as the by-code fetches
+  // complete, then submit them at Pay time.
+  const [liveIdByCode, setLiveIdByCode] = useState<Record<string, string>>({});
+  const [attempted, setAttempted] = useState<Set<string>>(new Set());
+  const resolving = cartCodes.some((c) => !resolved[c] && !attempted.has(c));
 
-  // Resolve cart ids:
-  //  1. If id is a live cuid, byId() returns the product directly.
-  //  2. If id is a static p_xxx, byId() 404s; fall back to byCode() using
-  //     the static product's saree code so we still get the live DB id.
   useEffect(() => {
     let cancelled = false;
-    const missing = cartIds.filter((id) => !attemptedIds.has(id));
+    const missing = cartCodes.filter((c) => !attempted.has(c));
     if (missing.length === 0) return;
-    setAttemptedIds((prev) => {
+    setAttempted((prev) => {
       const next = new Set(prev);
-      missing.forEach((id) => next.add(id));
+      missing.forEach((c) => next.add(c));
       return next;
     });
-    // Race each id resolution against a 12s timeout so a cold-start or
-    // network hang doesn't lock the Pay button forever.
-    const resolveOne = async (id: string): Promise<{ cartKey: string; api: Awaited<ReturnType<typeof productsApi.byId>> | null }> => {
+
+    const resolveOne = async (code: string) => {
       const inner = (async () => {
-        const direct = await productsApi.byId(id).catch(() => null);
-        if (direct) return { cartKey: id, api: direct };
-        const stat = staticProducts.find((p) => p.id === id);
-        if (stat) {
-          const byCode = await productsApi.byCode(stat.code).catch(() => null);
-          if (byCode) return { cartKey: id, api: byCode };
-        }
-        return { cartKey: id, api: null };
+        const api = await productsApi
+          .byCode(code)
+          // legacy: may be a cuid persisted before we switched to codes
+          .catch(() => productsApi.byId(code))
+          .catch(() => null);
+        return api ? { code, api } : { code, api: null };
       })();
-      const timeout = new Promise<{ cartKey: string; api: null }>((resolve) =>
-        setTimeout(() => resolve({ cartKey: id, api: null }), 12_000),
+      const timeout = new Promise<{ code: string; api: null }>((resolve) =>
+        setTimeout(() => resolve({ code, api: null }), 12_000),
       );
       return Promise.race([inner, timeout]);
     };
 
-    Promise.all(missing.map(resolveOne))
-      .then((results) => {
-        if (cancelled) return;
-        const fetchedNext: Record<string, Product> = {};
-        const idMap: Record<string, string> = {};
-        results.forEach(({ cartKey, api }) => {
-          if (api) {
-            fetchedNext[cartKey] = adaptProduct(api);
-            idMap[cartKey] = api.id;
-          }
-        });
-        if (Object.keys(fetchedNext).length > 0) {
-          setFetched((prev) => ({ ...prev, ...fetchedNext }));
+    Promise.all(missing.map(resolveOne)).then((results) => {
+      if (cancelled) return;
+      const ok: Record<string, Product> = {};
+      const ids: Record<string, string> = {};
+      results.forEach(({ code, api }) => {
+        if (api) {
+          ok[code] = adaptProduct(api);
+          ids[code] = api.id;
         }
-        if (Object.keys(idMap).length > 0) {
-          setLiveIdByCartKey((prev) => ({ ...prev, ...idMap }));
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // belt-and-braces: never leave attempted-but-unfinished IDs
       });
+      if (Object.keys(ok).length > 0) setResolved((prev) => ({ ...prev, ...ok }));
+      if (Object.keys(ids).length > 0) setLiveIdByCode((prev) => ({ ...prev, ...ids }));
+    });
     return () => {
       cancelled = true;
     };
-  }, [cartIds, attemptedIds]);
+  }, [cartCodes, attempted]);
 
-  const items = cartIds
-    .map((id) => {
-      const product = fetched[id] ?? staticProducts.find((p) => p.id === id);
-      return product ? { product, qty: cart[id], cartKey: id } : null;
-    })
-    .filter((x): x is { product: Product; qty: number; cartKey: string } => x !== null);
+  const items = cartCodes
+    .map((code) => (resolved[code] ? { product: resolved[code], qty: cart[code], code } : null))
+    .filter((x): x is { product: Product; qty: number; code: string } => x !== null);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = 0;
@@ -122,7 +100,7 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  if (items.length === 0 && cartIds.length > 0 && resolving) {
+  if (items.length === 0 && cartCodes.length > 0 && resolving) {
     return (
       <Section className="!py-32 text-center">
         <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
@@ -156,23 +134,18 @@ function CheckoutInner() {
       return;
     }
 
-    // Build the payload using LIVE DB ids (resolved via API). Items whose
-    // cart key never resolved to a real product get dropped here — they
-    // can't be ordered, and submitting them would 400 with "Some items are
-    // unavailable". We surface that to the user instead of silently failing.
+    // Build payload using the LIVE DB id we resolved for each cart code.
+    // Items whose code never resolved get dropped — they shouldn't ever be
+    // here because the Pay button is disabled while resolving, but the
+    // safety net prevents 400s from the orders API.
     const payload = items
-      .map((it) => ({
-        cartKey: it.cartKey,
-        liveId: liveIdByCartKey[it.cartKey],
-        qty: it.qty,
-        title: it.product.name,
-      }))
+      .map((it) => ({ code: it.code, liveId: liveIdByCode[it.code], qty: it.qty }))
       .filter((x) => Boolean(x.liveId));
     const dropped = items.length - payload.length;
 
     if (payload.length === 0) {
       setSubmitError(
-        "None of the items in your bag are available right now. Please refresh or browse the latest collection.",
+        "None of the items in your bag could be found in the catalogue. Please clear your bag and try again.",
       );
       setSubmitting(false);
       return;
@@ -186,10 +159,10 @@ function CheckoutInner() {
           quantity: it.qty,
         })),
       });
-      // Clear out the orphan static-id cart entries that were dropped, so
-      // they don't keep haunting future checkouts.
+      // Clean up any unresolved orphan codes so they don't leak into the
+      // next session.
       items.forEach((it) => {
-        if (!liveIdByCartKey[it.cartKey]) removeFromCart(it.cartKey);
+        if (!liveIdByCode[it.code]) removeFromCart(it.code);
       });
       clearCart();
       router.push(`/tracking?order=${encodeURIComponent(order.number)}`);
@@ -406,7 +379,7 @@ function CheckoutInner() {
             <h3 className="font-[family-name:var(--font-display)] text-xl mb-4">Your bag</h3>
             <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 hide-scrollbar">
               {items.map(({ product, qty }) => (
-                <div key={product.id} className="flex gap-3">
+                <div key={product.code} className="flex gap-3">
                   <div className="relative h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
                     <Image src={product.image} alt={product.name} fill sizes="100px" className="object-cover" />
                   </div>

@@ -8,7 +8,6 @@ import { Icon } from "@/components/ui/Icon";
 import { ProductCard } from "@/components/product/ProductCard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useShop } from "@/lib/store/shop-store";
-import { products as staticProducts } from "@/lib/data/products";
 import { productsApi } from "@/lib/api/products";
 import { adaptProduct } from "@/lib/api/adapt";
 import type { Product } from "@/types";
@@ -21,56 +20,53 @@ export default function WishlistPage() {
   );
 }
 
+/**
+ * Wishlist keys are product codes (RV-2401, …) — same convention as the
+ * cart. All product data comes from /products/code/:code.
+ */
 function WishlistInner() {
   const { wishlist } = useShop();
-  const wishlistIds = useMemo(() => wishlist, [wishlist]);
-  const [fetched, setFetched] = useState<Record<string, Product>>({});
-  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
-  const resolving = wishlistIds.some(
-    (id) => !staticProducts.find((p) => p.id === id) && !fetched[id] && !attemptedIds.has(id),
-  );
+  const codes = useMemo(() => wishlist, [wishlist]);
+  const [resolved, setResolved] = useState<Record<string, Product>>({});
+  const [attempted, setAttempted] = useState<Set<string>>(new Set());
+  const resolving = codes.some((c) => !resolved[c] && !attempted.has(c));
 
-  // Same fix as the cart page: live products have Prisma cuids that don't
-  // appear in the static fallback. Track attempted ids so we don't refetch
-  // forever or race with renders.
   useEffect(() => {
     let cancelled = false;
-    const missing = wishlistIds.filter(
-      (id) =>
-        !staticProducts.find((p) => p.id === id) &&
-        !fetched[id] &&
-        !attemptedIds.has(id),
-    );
+    const missing = codes.filter((c) => !attempted.has(c));
     if (missing.length === 0) return;
-    setAttemptedIds((prev) => {
+    setAttempted((prev) => {
       const next = new Set(prev);
-      missing.forEach((id) => next.add(id));
+      missing.forEach((c) => next.add(c));
       return next;
     });
-    Promise.all(
-      missing.map((id) =>
-        productsApi
-          .byId(id)
-          .catch(() => productsApi.byCode(id).catch(() => null)),
-      ),
-    ).then((results) => {
+
+    const fetchOne = (code: string): Promise<Product | null> => {
+      const inner = productsApi
+        .byCode(code)
+        .catch(() => productsApi.byId(code))
+        .then((api) => adaptProduct(api))
+        .catch(() => null as Product | null);
+      const timeout = new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), 12_000),
+      );
+      return Promise.race([inner, timeout]);
+    };
+
+    Promise.all(missing.map(fetchOne)).then((results) => {
       if (cancelled) return;
-      const next: Record<string, Product> = {};
-      results.forEach((api, i) => {
-        if (api) next[missing[i]] = adaptProduct(api);
+      const ok: Record<string, Product> = {};
+      results.forEach((p, i) => {
+        if (p) ok[missing[i]] = p;
       });
-      if (Object.keys(next).length > 0) {
-        setFetched((prev) => ({ ...prev, ...next }));
-      }
+      if (Object.keys(ok).length > 0) setResolved((prev) => ({ ...prev, ...ok }));
     });
     return () => {
       cancelled = true;
     };
-  }, [wishlistIds, fetched, attemptedIds]);
+  }, [codes, attempted]);
 
-  const items = wishlistIds
-    .map((id) => staticProducts.find((p) => p.id === id) ?? fetched[id])
-    .filter((p): p is Product => Boolean(p));
+  const items = codes.map((c) => resolved[c]).filter((p): p is Product => Boolean(p));
 
   return (
     <Section className="!pt-8 !pb-24">
@@ -80,7 +76,7 @@ function WishlistInner() {
         Pieces you&rsquo;ve fallen in love with. We&rsquo;ll let you know if they go on a private edit.
       </p>
 
-      {items.length === 0 && wishlistIds.length > 0 && resolving ? (
+      {items.length === 0 && codes.length > 0 && resolving ? (
         <div className="mt-16 inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
           <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
           <span className="text-sm tracking-wide">Loading your saved pieces…</span>
@@ -100,7 +96,7 @@ function WishlistInner() {
       ) : (
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
           {items.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard key={p.code} product={p} />
           ))}
         </div>
       )}

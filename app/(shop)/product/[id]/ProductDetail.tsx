@@ -26,7 +26,7 @@ export default function ProductDetail({ product, related }: { product: Product; 
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<"story" | "weave" | "care">("story");
   const { addToCart, toggleWishlist, isInWishlist } = useShop();
-  const wished = isInWishlist(product.id);
+  const wished = isInWishlist(product.code);
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -181,13 +181,13 @@ export default function ProductDetail({ product, related }: { product: Product; 
                 variant="primary"
                 size="lg"
                 fullWidth
-                onClick={() => addToCart(product.id, qty)}
+                onClick={() => addToCart(product.code, qty)}
                 iconLeft={<Icon name="bag" size={16} />}
               >
                 Add to Bag · {formatINR(product.price * qty)}
               </Button>
               <button
-                onClick={() => toggleWishlist(product.id)}
+                onClick={() => toggleWishlist(product.code)}
                 className={cn(
                   "h-14 w-14 grid place-items-center rounded-full ring-1 transition-all",
                   wished
