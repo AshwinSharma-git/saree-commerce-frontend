@@ -5,10 +5,19 @@ import { Section, Eyebrow } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { ProductCard } from "@/components/product/ProductCard";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useShop } from "@/lib/store/shop-store";
 import { products } from "@/lib/data/products";
 
 export default function WishlistPage() {
+  return (
+    <RequireAuth>
+      <WishlistInner />
+    </RequireAuth>
+  );
+}
+
+function WishlistInner() {
   const { wishlist } = useShop();
   const items = wishlist.map((id) => products.find((p) => p.id === id)).filter(Boolean) as typeof products;
 

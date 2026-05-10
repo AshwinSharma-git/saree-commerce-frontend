@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { products } from "@/lib/data/products";
 import { ordersApi } from "@/lib/api/orders";
 import { ApiError } from "@/lib/api/client";
@@ -19,6 +20,14 @@ import { cn } from "@/lib/cn";
 const steps = ["Address", "Delivery", "Payment"] as const;
 
 export default function CheckoutPage() {
+  return (
+    <RequireAuth>
+      <CheckoutInner />
+    </RequireAuth>
+  );
+}
+
+function CheckoutInner() {
   const router = useRouter();
   const { cart, clearCart } = useShop();
   const { user } = useAuth();
@@ -53,14 +62,12 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setSubmitError(null);
 
-    // Demo path — no auth: keep the simulated success route so the UI stays
-    // demoable without requiring sign-in. Real orders need auth.
+    // RequireAuth guarantees `user` is set before this component renders,
+    // so this branch is unreachable. Kept as a safety net so we never
+    // POST /orders without an Authorization header.
     if (!user) {
-      setTimeout(() => {
-        const fakeNumber = `RV-${Math.floor(10000 + Math.random() * 90000)}`;
-        clearCart();
-        router.push(`/tracking?order=${fakeNumber}&demo=1`);
-      }, 1200);
+      setSubmitError("Please sign in to place an order.");
+      setSubmitting(false);
       return;
     }
 
