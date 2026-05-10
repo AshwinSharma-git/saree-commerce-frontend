@@ -32,50 +32,73 @@ export default function CheckoutPage() {
 
 function CheckoutInner() {
   const router = useRouter();
-  const { cart, clearCart } = useShop();
+  const { cart, clearCart, removeFromCart } = useShop();
   const { user } = useAuth();
   const cartIds = useMemo(() => Object.keys(cart), [cart]);
   const [fetched, setFetched] = useState<Record<string, Product>>({});
-  const [resolving, setResolving] = useState(false);
+  // Map of cart-key (id used in the cart store) → real DB product id.
+  // For live products this is identity; for static p_xxx ids we resolve
+  // by code to the actual DB product so /orders/create accepts them.
+  const [liveIdByCartKey, setLiveIdByCartKey] = useState<Record<string, string>>({});
+  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
+  const resolving = cartIds.some(
+    (id) => !fetched[id] && !staticProducts.find((p) => p.id === id) && !attemptedIds.has(id),
+  );
 
-  // Resolve any cart ids that aren't in the static fallback (live DB
-  // products use Prisma cuids). Same fix applied to /cart and /wishlist.
+  // Resolve cart ids:
+  //  1. If id is a live cuid, byId() returns the product directly.
+  //  2. If id is a static p_xxx, byId() 404s; fall back to byCode() using
+  //     the static product's saree code so we still get the live DB id.
   useEffect(() => {
     let cancelled = false;
-    const missing = cartIds.filter(
-      (id) => !staticProducts.find((p) => p.id === id) && !fetched[id],
-    );
+    const missing = cartIds.filter((id) => !attemptedIds.has(id));
     if (missing.length === 0) return;
-    setResolving(true);
+    setAttemptedIds((prev) => {
+      const next = new Set(prev);
+      missing.forEach((id) => next.add(id));
+      return next;
+    });
     Promise.all(
-      missing.map((id) =>
-        productsApi
-          .byId(id)
-          .catch(() => productsApi.byCode(id).catch(() => null)),
-      ),
-    )
-      .then((results) => {
-        if (cancelled) return;
-        const next: Record<string, Product> = { ...fetched };
-        results.forEach((api, i) => {
-          if (api) next[missing[i]] = adaptProduct(api);
-        });
-        setFetched(next);
-      })
-      .finally(() => {
-        if (!cancelled) setResolving(false);
+      missing.map(async (id) => {
+        // Try as a live cuid first.
+        const direct = await productsApi.byId(id).catch(() => null);
+        if (direct) return { cartKey: id, api: direct };
+        // Fallback: if it's a static id, look up by the saree code.
+        const stat = staticProducts.find((p) => p.id === id);
+        if (stat) {
+          const byCode = await productsApi.byCode(stat.code).catch(() => null);
+          if (byCode) return { cartKey: id, api: byCode };
+        }
+        return { cartKey: id, api: null };
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const fetchedNext: Record<string, Product> = {};
+      const idMap: Record<string, string> = {};
+      results.forEach(({ cartKey, api }) => {
+        if (api) {
+          fetchedNext[cartKey] = adaptProduct(api);
+          idMap[cartKey] = api.id;
+        }
       });
+      if (Object.keys(fetchedNext).length > 0) {
+        setFetched((prev) => ({ ...prev, ...fetchedNext }));
+      }
+      if (Object.keys(idMap).length > 0) {
+        setLiveIdByCartKey((prev) => ({ ...prev, ...idMap }));
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, [cartIds, fetched]);
+  }, [cartIds, attemptedIds]);
 
   const items = cartIds
     .map((id) => {
-      const product = staticProducts.find((p) => p.id === id) ?? fetched[id];
-      return product ? { product, qty: cart[id] } : null;
+      const product = fetched[id] ?? staticProducts.find((p) => p.id === id);
+      return product ? { product, qty: cart[id], cartKey: id } : null;
     })
-    .filter((x): x is { product: Product; qty: number } => x !== null);
+    .filter((x): x is { product: Product; qty: number; cartKey: string } => x !== null);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = 0;
@@ -122,20 +145,51 @@ function CheckoutInner() {
       return;
     }
 
+    // Build the payload using LIVE DB ids (resolved via API). Items whose
+    // cart key never resolved to a real product get dropped here — they
+    // can't be ordered, and submitting them would 400 with "Some items are
+    // unavailable". We surface that to the user instead of silently failing.
+    const payload = items
+      .map((it) => ({
+        cartKey: it.cartKey,
+        liveId: liveIdByCartKey[it.cartKey],
+        qty: it.qty,
+        title: it.product.name,
+      }))
+      .filter((x) => Boolean(x.liveId));
+    const dropped = items.length - payload.length;
+
+    if (payload.length === 0) {
+      setSubmitError(
+        "None of the items in your bag are available right now. Please refresh or browse the latest collection.",
+      );
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const order = await ordersApi.create({
         channel: "WEB",
-        items: items.map((it) => ({
-          productId: it.product.id,
+        items: payload.map((it) => ({
+          productId: it.liveId as string,
           quantity: it.qty,
         })),
+      });
+      // Clear out the orphan static-id cart entries that were dropped, so
+      // they don't keep haunting future checkouts.
+      items.forEach((it) => {
+        if (!liveIdByCartKey[it.cartKey]) removeFromCart(it.cartKey);
       });
       clearCart();
       router.push(`/tracking?order=${encodeURIComponent(order.number)}`);
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Could not place order. Please try again.";
-      setSubmitError(message);
+      setSubmitError(
+        dropped > 0
+          ? `${message} (${dropped} item${dropped === 1 ? "" : "s"} were unavailable and skipped.)`
+          : message,
+      );
       setSubmitting(false);
     }
   };

@@ -18,41 +18,61 @@ export default function CartPage() {
   const { cart, setQty, removeFromCart, clearCart } = useShop();
   const cartIds = useMemo(() => Object.keys(cart), [cart]);
   const [fetched, setFetched] = useState<Record<string, Product>>({});
-  const [resolving, setResolving] = useState(false);
+  // Ids the API explicitly couldn't resolve (404). Tracked separately so
+  // the auto-prune doesn't race against in-flight fetches and delete IDs
+  // that just haven't been resolved YET.
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
+  const resolving = cartIds.some(
+    (id) => !staticProducts.find((p) => p.id === id) && !fetched[id] && !failedIds.has(id),
+  );
 
   // Resolve any cart ids that aren't in the static fallback by hitting the
-  // live products API. Without this, products created via seed/admin (which
-  // have Prisma cuids) render as "missing" and the page shows the empty
-  // state even though the bag count says 1+.
+  // live products API. Skips IDs we've already tried (success OR fail).
   useEffect(() => {
     let cancelled = false;
     const missing = cartIds.filter(
-      (id) => !staticProducts.find((p) => p.id === id) && !fetched[id],
+      (id) =>
+        !staticProducts.find((p) => p.id === id) &&
+        !fetched[id] &&
+        !attemptedIds.has(id),
     );
     if (missing.length === 0) return;
-    setResolving(true);
+    setAttemptedIds((prev) => {
+      const next = new Set(prev);
+      missing.forEach((id) => next.add(id));
+      return next;
+    });
     Promise.all(
       missing.map((id) =>
         productsApi
           .byId(id)
           .catch(() => productsApi.byCode(id).catch(() => null)),
       ),
-    )
-      .then((results) => {
-        if (cancelled) return;
-        const next: Record<string, Product> = { ...fetched };
-        results.forEach((api, i) => {
-          if (api) next[missing[i]] = adaptProduct(api);
-        });
-        setFetched(next);
-      })
-      .finally(() => {
-        if (!cancelled) setResolving(false);
+    ).then((results) => {
+      if (cancelled) return;
+      const fetchedNext: Record<string, Product> = {};
+      const failedNext: string[] = [];
+      results.forEach((api, i) => {
+        const id = missing[i];
+        if (api) fetchedNext[id] = adaptProduct(api);
+        else failedNext.push(id);
       });
+      if (Object.keys(fetchedNext).length > 0) {
+        setFetched((prev) => ({ ...prev, ...fetchedNext }));
+      }
+      if (failedNext.length > 0) {
+        setFailedIds((prev) => {
+          const next = new Set(prev);
+          failedNext.forEach((id) => next.add(id));
+          return next;
+        });
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, [cartIds, fetched]);
+  }, [cartIds, fetched, attemptedIds]);
 
   const items = cartIds
     .map((id) => {
@@ -61,17 +81,14 @@ export default function CartPage() {
     })
     .filter((x): x is { product: Product; qty: number } => x !== null);
 
-  // Auto-prune stale ids that the API definitively could not resolve.
-  // (Don't prune while we're still fetching — the UI would briefly flicker
-  //  to empty before the resolved product lands.)
-  const unresolved = !resolving && cartIds.length > items.length;
+  // Auto-prune ONLY ids the API definitively couldn't resolve. Never prune
+  // ids that haven't been attempted yet — that was the bug that caused
+  // freshly-added items to vanish before the fetch even started.
   useEffect(() => {
-    if (!unresolved) return;
-    cartIds.forEach((id) => {
-      const known = staticProducts.find((p) => p.id === id) ?? fetched[id];
-      if (!known) removeFromCart(id);
+    failedIds.forEach((id) => {
+      if (cart[id] !== undefined) removeFromCart(id);
     });
-  }, [unresolved, cartIds, fetched, removeFromCart]);
+  }, [failedIds, cart, removeFromCart]);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = subtotal > 0 && subtotal < 5000 ? 250 : 0;

@@ -25,40 +25,48 @@ function WishlistInner() {
   const { wishlist } = useShop();
   const wishlistIds = useMemo(() => wishlist, [wishlist]);
   const [fetched, setFetched] = useState<Record<string, Product>>({});
-  const [resolving, setResolving] = useState(false);
+  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
+  const resolving = wishlistIds.some(
+    (id) => !staticProducts.find((p) => p.id === id) && !fetched[id] && !attemptedIds.has(id),
+  );
 
   // Same fix as the cart page: live products have Prisma cuids that don't
-  // appear in the static fallback. Without resolving them via the API, a
-  // wishlisted DB product silently disappears from the page.
+  // appear in the static fallback. Track attempted ids so we don't refetch
+  // forever or race with renders.
   useEffect(() => {
     let cancelled = false;
     const missing = wishlistIds.filter(
-      (id) => !staticProducts.find((p) => p.id === id) && !fetched[id],
+      (id) =>
+        !staticProducts.find((p) => p.id === id) &&
+        !fetched[id] &&
+        !attemptedIds.has(id),
     );
     if (missing.length === 0) return;
-    setResolving(true);
+    setAttemptedIds((prev) => {
+      const next = new Set(prev);
+      missing.forEach((id) => next.add(id));
+      return next;
+    });
     Promise.all(
       missing.map((id) =>
         productsApi
           .byId(id)
           .catch(() => productsApi.byCode(id).catch(() => null)),
       ),
-    )
-      .then((results) => {
-        if (cancelled) return;
-        const next: Record<string, Product> = { ...fetched };
-        results.forEach((api, i) => {
-          if (api) next[missing[i]] = adaptProduct(api);
-        });
-        setFetched(next);
-      })
-      .finally(() => {
-        if (!cancelled) setResolving(false);
+    ).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, Product> = {};
+      results.forEach((api, i) => {
+        if (api) next[missing[i]] = adaptProduct(api);
       });
+      if (Object.keys(next).length > 0) {
+        setFetched((prev) => ({ ...prev, ...next }));
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, [wishlistIds, fetched]);
+  }, [wishlistIds, fetched, attemptedIds]);
 
   const items = wishlistIds
     .map((id) => staticProducts.find((p) => p.id === id) ?? fetched[id])
