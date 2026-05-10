@@ -58,36 +58,47 @@ function CheckoutInner() {
       missing.forEach((id) => next.add(id));
       return next;
     });
-    Promise.all(
-      missing.map(async (id) => {
-        // Try as a live cuid first.
+    // Race each id resolution against a 12s timeout so a cold-start or
+    // network hang doesn't lock the Pay button forever.
+    const resolveOne = async (id: string): Promise<{ cartKey: string; api: Awaited<ReturnType<typeof productsApi.byId>> | null }> => {
+      const inner = (async () => {
         const direct = await productsApi.byId(id).catch(() => null);
         if (direct) return { cartKey: id, api: direct };
-        // Fallback: if it's a static id, look up by the saree code.
         const stat = staticProducts.find((p) => p.id === id);
         if (stat) {
           const byCode = await productsApi.byCode(stat.code).catch(() => null);
           if (byCode) return { cartKey: id, api: byCode };
         }
         return { cartKey: id, api: null };
-      }),
-    ).then((results) => {
-      if (cancelled) return;
-      const fetchedNext: Record<string, Product> = {};
-      const idMap: Record<string, string> = {};
-      results.forEach(({ cartKey, api }) => {
-        if (api) {
-          fetchedNext[cartKey] = adaptProduct(api);
-          idMap[cartKey] = api.id;
+      })();
+      const timeout = new Promise<{ cartKey: string; api: null }>((resolve) =>
+        setTimeout(() => resolve({ cartKey: id, api: null }), 12_000),
+      );
+      return Promise.race([inner, timeout]);
+    };
+
+    Promise.all(missing.map(resolveOne))
+      .then((results) => {
+        if (cancelled) return;
+        const fetchedNext: Record<string, Product> = {};
+        const idMap: Record<string, string> = {};
+        results.forEach(({ cartKey, api }) => {
+          if (api) {
+            fetchedNext[cartKey] = adaptProduct(api);
+            idMap[cartKey] = api.id;
+          }
+        });
+        if (Object.keys(fetchedNext).length > 0) {
+          setFetched((prev) => ({ ...prev, ...fetchedNext }));
         }
+        if (Object.keys(idMap).length > 0) {
+          setLiveIdByCartKey((prev) => ({ ...prev, ...idMap }));
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // belt-and-braces: never leave attempted-but-unfinished IDs
       });
-      if (Object.keys(fetchedNext).length > 0) {
-        setFetched((prev) => ({ ...prev, ...fetchedNext }));
-      }
-      if (Object.keys(idMap).length > 0) {
-        setLiveIdByCartKey((prev) => ({ ...prev, ...idMap }));
-      }
-    });
     return () => {
       cancelled = true;
     };
@@ -354,6 +365,13 @@ function CheckoutInner() {
                   </div>
                 )}
 
+                {resolving && (
+                  <p className="mt-5 px-4 py-3 rounded-xl bg-[var(--color-cream)] text-[var(--color-fg-muted)] text-xs flex items-center gap-2" role="status">
+                    <span className="h-3 w-3 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
+                    Verifying availability of items in your bag…
+                  </p>
+                )}
+
                 {submitError && (
                   <p className="mt-5 px-4 py-3 rounded-xl bg-[var(--color-maroon)]/10 text-[var(--color-maroon)] text-sm" role="alert">
                     {submitError}
@@ -368,8 +386,13 @@ function CheckoutInner() {
 
                 <div className="mt-7 flex justify-between">
                   <Button variant="secondary" onClick={() => setStep(1)} iconLeft={<Icon name="arrow-left" size={16} />}>Back</Button>
-                  <Button variant="gold" onClick={handlePlaceOrder} loading={submitting}>
-                    {submitting ? "Placing order…" : `Pay ${formatINR(total)} (demo)`}
+                  <Button
+                    variant="gold"
+                    onClick={handlePlaceOrder}
+                    loading={submitting}
+                    disabled={resolving || submitting}
+                  >
+                    {submitting ? "Placing order…" : resolving ? "Verifying…" : `Pay ${formatINR(total)} (demo)`}
                   </Button>
                 </div>
               </motion.section>

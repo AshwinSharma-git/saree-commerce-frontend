@@ -43,32 +43,51 @@ export default function CartPage() {
       missing.forEach((id) => next.add(id));
       return next;
     });
+    // Race each fetch against a 12s timeout — Railway cold starts can take
+    // ~10s and we don't want the spinner stuck forever if the backend is
+    // genuinely down.
+    const withTimeout = <T,>(p: Promise<T>): Promise<T | null> =>
+      Promise.race([
+        p.catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+      ]);
+
     Promise.all(
       missing.map((id) =>
-        productsApi
-          .byId(id)
-          .catch(() => productsApi.byCode(id).catch(() => null)),
+        withTimeout(productsApi.byId(id).catch(() => productsApi.byCode(id))),
       ),
-    ).then((results) => {
-      if (cancelled) return;
-      const fetchedNext: Record<string, Product> = {};
-      const failedNext: string[] = [];
-      results.forEach((api, i) => {
-        const id = missing[i];
-        if (api) fetchedNext[id] = adaptProduct(api);
-        else failedNext.push(id);
-      });
-      if (Object.keys(fetchedNext).length > 0) {
-        setFetched((prev) => ({ ...prev, ...fetchedNext }));
-      }
-      if (failedNext.length > 0) {
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const fetchedNext: Record<string, Product> = {};
+        const failedNext: string[] = [];
+        results.forEach((api, i) => {
+          const id = missing[i];
+          if (api) fetchedNext[id] = adaptProduct(api);
+          else failedNext.push(id);
+        });
+        if (Object.keys(fetchedNext).length > 0) {
+          setFetched((prev) => ({ ...prev, ...fetchedNext }));
+        }
+        if (failedNext.length > 0) {
+          setFailedIds((prev) => {
+            const next = new Set(prev);
+            failedNext.forEach((id) => next.add(id));
+            return next;
+          });
+        }
+      })
+      .catch(() => {
+        // Belt-and-braces: if Promise.all itself rejects (shouldn't, since
+        // each member catches), still mark everything as failed so the
+        // spinner gives up instead of blocking the user forever.
+        if (cancelled) return;
         setFailedIds((prev) => {
           const next = new Set(prev);
-          failedNext.forEach((id) => next.add(id));
+          missing.forEach((id) => next.add(id));
           return next;
         });
-      }
-    });
+      });
     return () => {
       cancelled = true;
     };
