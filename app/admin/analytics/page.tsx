@@ -118,26 +118,30 @@ export default function AnalyticsPage() {
 }
 
 function BarChart() {
-  const max = Math.max(...monthlyRevenue.map((m) => m.value));
+  const max = Math.max(...monthlyRevenue.map((m) => m.value), 1);
+  // Same trick as the dashboard chart — give each bar a flex-1 spacer with
+  // a definite height so percentage-height bars actually resolve.
   return (
-    <div className="flex items-end justify-between gap-3 h-56">
+    <div className="flex items-stretch gap-3 h-56">
       {monthlyRevenue.map((m, i) => {
         const h = (m.value / max) * 100;
         const isMax = m.value === max;
         return (
-          <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
-            <span className={`text-[11px] ${isMax ? "text-[var(--color-maroon)] font-medium" : "text-[var(--color-fg-muted)]"}`}>
+          <div key={m.month} className="flex-1 flex flex-col items-center h-full">
+            <span className={`text-[11px] mb-2 tabular-nums ${isMax ? "text-[var(--color-maroon)] font-medium" : "text-[var(--color-fg-muted)]"}`}>
               {Math.round(m.value / 1000)}k
             </span>
-            <motion.div
-              initial={{ height: 0 }}
-              whileInView={{ height: `${h}%` }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
-              className={`w-full rounded-t-xl ${isMax ? "gradient-maroon" : "bg-[var(--color-cream-warm)]"}`}
-              style={{ minHeight: 4 }}
-            />
-            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">{m.month}</span>
+            <div className="flex-1 w-full flex items-end">
+              <motion.div
+                initial={{ height: 0 }}
+                whileInView={{ height: `${Math.max(2, h)}%` }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                className={`w-full rounded-t-xl ${isMax ? "gradient-maroon" : "bg-[var(--color-cream-warm)]"}`}
+                style={{ minHeight: 4 }}
+              />
+            </div>
+            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider mt-2">{m.month}</span>
           </div>
         );
       })}

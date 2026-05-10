@@ -317,41 +317,59 @@ export default function AdminDashboard() {
 }
 
 function RevenueChart({ series }: { series: ApiAdminOverview["revenueSeries"] }) {
-  if (series.length === 0) {
+  // Pad to a full 7-day window even if backend only returned days with revenue.
+  // Otherwise the chart looks like one lonely bar floating on a blank canvas.
+  const today = new Date();
+  const byDay = new Map(series.map((s) => [s.day, s.revenue]));
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (6 - i));
+    const key = d.toISOString().slice(0, 10);
+    return { day: key, revenue: byDay.get(key) ?? 0, label: d.toLocaleDateString("en-IN", { weekday: "short" }) };
+  });
+
+  const max = Math.max(...days.map((d) => d.revenue), 1);
+  const hasAnyRevenue = days.some((d) => d.revenue > 0);
+
+  if (!hasAnyRevenue) {
     return (
       <div className="h-56 grid place-items-center text-sm text-[var(--color-fg-muted)]">
         No revenue in the last 7 days yet.
       </div>
     );
   }
-  const max = Math.max(...series.map((s) => s.revenue), 1);
+
+  // Outer flex row aligned to bottom; each column is full-height with a
+  // flex-1 inner spacer that gives the percentage-height bar a definite
+  // parent to resolve against. Without this, percentage heights collapse.
   return (
-    <div className="flex items-end justify-between gap-3 h-56">
-      {series.map((s) => {
-        const h = (s.revenue / max) * 100;
-        const isMax = s.revenue === max;
-        const day = new Date(s.day).toLocaleDateString("en-IN", { weekday: "short" });
+    <div className="flex items-stretch gap-3 h-56">
+      {days.map((d) => {
+        const h = (d.revenue / max) * 100;
+        const isMax = d.revenue === max && d.revenue > 0;
         return (
-          <div key={s.day} className="flex-1 flex flex-col items-center gap-2">
+          <div key={d.day} className="flex-1 flex flex-col items-center h-full">
             <span
               className={cn(
-                "text-[11px]",
+                "text-[11px] mb-2 tabular-nums",
                 isMax ? "text-[var(--color-maroon)] font-medium" : "text-[var(--color-fg-muted)]",
               )}
             >
-              {Math.round(s.revenue / 1000 / 100)}k
+              {d.revenue > 0 ? `₹${Math.round(d.revenue / 100).toLocaleString("en-IN")}` : "—"}
             </span>
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: `${Math.max(4, h)}%` }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              className={cn(
-                "w-full rounded-t-xl",
-                isMax ? "gradient-maroon" : "bg-[var(--color-cream-warm)]",
-              )}
-              style={{ minHeight: 4 }}
-            />
-            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">{day}</span>
+            <div className="flex-1 w-full flex items-end">
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: `${Math.max(2, h)}%` }}
+                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                className={cn(
+                  "w-full rounded-t-xl",
+                  isMax ? "gradient-maroon" : "bg-[var(--color-cream-warm)]",
+                )}
+                style={{ minHeight: d.revenue > 0 ? 4 : 0 }}
+              />
+            </div>
+            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider mt-2">{d.label}</span>
           </div>
         );
       })}
