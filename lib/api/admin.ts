@@ -10,37 +10,9 @@ export const adminApi = {
   }>("/admin/settings"),
 };
 
-export interface InventoryRow {
-  id: string;
-  productId: string;
-  onHand: number;
-  reserved: number;
-  reorderPoint: number;
-  product: {
-    id: string;
-    code: string;
-    title: string;
-    slug: string;
-    price: number;
-    fabric: string;
-    collection: string;
-    images: { url: string }[];
-  };
-}
-
 export const inventoryApi = {
   summary: () =>
     api.get<{ inStock: number; lowStock: number; outOfStock: number }>("/inventory/summary"),
-  list: (params: { status?: "all" | "in-stock" | "low-stock" | "out-of-stock"; q?: string; pageSize?: number } = {}) => {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set("status", params.status);
-    if (params.q) qs.set("q", params.q);
-    if (params.pageSize) qs.set("pageSize", String(params.pageSize));
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    return api.get<InventoryRow[]>(`/inventory${suffix}`);
-  },
-  restock: (productId: string, qty: number, note?: string) =>
-    api.post<InventoryRow>(`/inventory/${productId}/restock`, { qty, note }),
 };
 
 export const whatsappApi = {
