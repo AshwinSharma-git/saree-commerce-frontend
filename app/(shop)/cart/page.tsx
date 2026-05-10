@@ -24,7 +24,7 @@ import type { Product } from "@/types";
  *     12 s timeout so a cold-started backend can't trap the user on a spinner.
  */
 export default function CartPage() {
-  const { cart, setQty, removeFromCart, clearCart } = useShop();
+  const { cart, setQty, removeFromCart, clearCart, hydrated } = useShop();
   const cartCodes = useMemo(() => Object.keys(cart), [cart]);
   const [resolved, setResolved] = useState<Record<string, Product>>({});
   const [failedCodes, setFailedCodes] = useState<Set<string>>(new Set());
@@ -112,6 +112,19 @@ export default function CartPage() {
   // Show inline loader only when we have nothing to render yet AND something
   // is still in-flight. Once any item resolves, we render the cart with
   // partial data — feels much faster than the all-or-nothing spinner.
+  // While the shop store is still hydrating from localStorage, render the
+  // skeleton instead of the empty state — otherwise the user sees "Empty"
+  // for a frame before their persisted cart appears.
+  if (!hydrated) {
+    return (
+      <Section className="!py-32 text-center">
+        <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
+          <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
+          <span className="text-sm tracking-wide">Loading your bag…</span>
+        </div>
+      </Section>
+    );
+  }
   if (items.length === 0 && cartCodes.length > 0 && resolving) {
     return (
       <Section className="!py-32 text-center">

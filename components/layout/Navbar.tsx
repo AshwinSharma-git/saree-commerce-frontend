@@ -24,7 +24,7 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
-  const { cartCount, wishlistCount } = useShop();
+  const { cartCount, wishlistCount, hydrated } = useShop();
   const { user, logout, isAdmin } = useAuth();
 
   useEffect(() => {
@@ -182,7 +182,7 @@ export function Navbar() {
               aria-label="Wishlist"
             >
               <Icon name="heart" size={20} />
-              {wishlistCount > 0 && (
+              {hydrated && wishlistCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full gradient-gold text-[10px] font-semibold text-[var(--color-noir)]">
                   {wishlistCount}
                 </span>
@@ -275,7 +275,7 @@ export function Navbar() {
               aria-label="Shopping bag"
             >
               <Icon name="bag" size={20} />
-              {cartCount > 0 && (
+              {hydrated && cartCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full gradient-gold text-[10px] font-semibold text-[var(--color-noir)]">
                   {cartCount}
                 </span>

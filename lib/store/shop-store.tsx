@@ -8,6 +8,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 
@@ -79,6 +80,10 @@ interface ShopContextValue extends ShopState {
   cartCount: number;
   wishlistCount: number;
   isInWishlist: (productId: string) => boolean;
+  /** False during SSR + first client render (before localStorage hydrates).
+   *  Components that show cart/wishlist counts in markup should gate on
+   *  this to avoid the 0 → N flash and SSR hydration warnings. */
+  hydrated: boolean;
 }
 
 const ShopContext = createContext<ShopContextValue | null>(null);
@@ -86,33 +91,41 @@ const ShopContext = createContext<ShopContextValue | null>(null);
 export function ShopProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
-  // hydrate from localStorage. Cart/wishlist keys are now product CODES
-  // (RV-NNNN). Anything that doesn't match that shape is from an older
-  // build (static p_001 ids, raw cuids) and gets dropped at hydrate-time
-  // so the cart/wishlist pages don't waste a round-trip + spinner on
-  // entries that can never resolve.
+  // hydrate from localStorage. Cart/wishlist keys are product CODES
+  // (RV-NNNN). Anything else is from an older build and gets dropped here
+  // so the cart pages don't waste a round-trip + spinner on entries that
+  // can never resolve.
   useEffect(() => {
     try {
       const raw = localStorage.getItem("rv:shop");
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<ShopState>;
-      const isCode = (s: string) => /^RV[-_]?\d{2,5}$/i.test(s);
-      const cleanCart: Record<string, number> = {};
-      Object.entries(parsed.cart ?? {}).forEach(([k, v]) => {
-        if (isCode(k)) cleanCart[k] = v;
-      });
-      const cleanWishlist = (parsed.wishlist ?? []).filter(isCode);
-      dispatch({ type: "HYDRATE", state: { cart: cleanCart, wishlist: cleanWishlist } });
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<ShopState>;
+        const isCode = (s: string) => /^RV[-_]?\d{2,5}$/i.test(s);
+        const cleanCart: Record<string, number> = {};
+        Object.entries(parsed.cart ?? {}).forEach(([k, v]) => {
+          if (isCode(k)) cleanCart[k] = v;
+        });
+        const cleanWishlist = (parsed.wishlist ?? []).filter(isCode);
+        dispatch({ type: "HYDRATE", state: { cart: cleanCart, wishlist: cleanWishlist } });
+      }
     } catch {}
+    // Always flip hydrated last — even on parse failure — so components
+    // that wait for it don't hang. Run as a microtask so the HYDRATE
+    // dispatch above has a chance to settle first.
+    setHydrated(true);
   }, []);
 
-  // persist
+  // Persist — but ONLY after hydration. Otherwise the first render writes
+  // an empty {} over real localStorage data before hydrate has a chance
+  // to fill state.
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem("rv:shop", JSON.stringify({ cart: state.cart, wishlist: state.wishlist }));
     } catch {}
-  }, [state.cart, state.wishlist]);
+  }, [hydrated, state.cart, state.wishlist]);
 
   // auto-clear toast
   useEffect(() => {
@@ -153,8 +166,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       cartCount,
       wishlistCount: state.wishlist.length,
       isInWishlist: (id: string) => state.wishlist.includes(id),
+      hydrated,
     };
-  }, [state, addToCart, removeFromCart, setQty, toggleWishlist, clearCart]);
+  }, [state, addToCart, removeFromCart, setQty, toggleWishlist, clearCart, hydrated]);
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 }

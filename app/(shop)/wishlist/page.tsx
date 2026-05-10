@@ -25,7 +25,7 @@ export default function WishlistPage() {
  * cart. All product data comes from /products/code/:code.
  */
 function WishlistInner() {
-  const { wishlist } = useShop();
+  const { wishlist, hydrated } = useShop();
   const codes = useMemo(() => wishlist, [wishlist]);
   const [resolved, setResolved] = useState<Record<string, Product>>({});
   const [attempted, setAttempted] = useState<Set<string>>(new Set());
@@ -76,7 +76,7 @@ function WishlistInner() {
         Pieces you&rsquo;ve fallen in love with. We&rsquo;ll let you know if they go on a private edit.
       </p>
 
-      {items.length === 0 && codes.length > 0 && resolving ? (
+      {!hydrated || (items.length === 0 && codes.length > 0 && resolving) ? (
         <div className="mt-16 inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
           <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
           <span className="text-sm tracking-wide">Loading your saved pieces…</span>

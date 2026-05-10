@@ -31,7 +31,7 @@ export default function CheckoutPage() {
 
 function CheckoutInner() {
   const router = useRouter();
-  const { cart, clearCart, removeFromCart } = useShop();
+  const { cart, clearCart, removeFromCart, hydrated } = useShop();
   const { user } = useAuth();
   const cartCodes = useMemo(() => Object.keys(cart), [cart]);
   const [resolved, setResolved] = useState<Record<string, Product>>({});
@@ -100,7 +100,7 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  if (items.length === 0 && cartCodes.length > 0 && resolving) {
+  if (!hydrated || (items.length === 0 && cartCodes.length > 0 && resolving)) {
     return (
       <Section className="!py-32 text-center">
         <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
