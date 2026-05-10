@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,11 +11,14 @@ import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
-import { products } from "@/lib/data/products";
+import { products as staticProducts } from "@/lib/data/products";
+import { productsApi } from "@/lib/api/products";
+import { adaptProduct } from "@/lib/api/adapt";
 import { ordersApi } from "@/lib/api/orders";
 import { ApiError } from "@/lib/api/client";
 import { formatINR } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import type { Product } from "@/types";
 
 const steps = ["Address", "Delivery", "Payment"] as const;
 
@@ -31,10 +34,48 @@ function CheckoutInner() {
   const router = useRouter();
   const { cart, clearCart } = useShop();
   const { user } = useAuth();
-  const items = Object.entries(cart).map(([id, qty]) => {
-    const product = products.find((p) => p.id === id)!;
-    return { product, qty };
-  }).filter((x) => x.product);
+  const cartIds = useMemo(() => Object.keys(cart), [cart]);
+  const [fetched, setFetched] = useState<Record<string, Product>>({});
+  const [resolving, setResolving] = useState(false);
+
+  // Resolve any cart ids that aren't in the static fallback (live DB
+  // products use Prisma cuids). Same fix applied to /cart and /wishlist.
+  useEffect(() => {
+    let cancelled = false;
+    const missing = cartIds.filter(
+      (id) => !staticProducts.find((p) => p.id === id) && !fetched[id],
+    );
+    if (missing.length === 0) return;
+    setResolving(true);
+    Promise.all(
+      missing.map((id) =>
+        productsApi
+          .byId(id)
+          .catch(() => productsApi.byCode(id).catch(() => null)),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const next: Record<string, Product> = { ...fetched };
+        results.forEach((api, i) => {
+          if (api) next[missing[i]] = adaptProduct(api);
+        });
+        setFetched(next);
+      })
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cartIds, fetched]);
+
+  const items = cartIds
+    .map((id) => {
+      const product = staticProducts.find((p) => p.id === id) ?? fetched[id];
+      return product ? { product, qty: cart[id] } : null;
+    })
+    .filter((x): x is { product: Product; qty: number } => x !== null);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = 0;
@@ -47,6 +88,16 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  if (items.length === 0 && cartIds.length > 0 && resolving) {
+    return (
+      <Section className="!py-32 text-center">
+        <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
+          <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
+          <span className="text-sm tracking-wide">Loading your bag…</span>
+        </div>
+      </Section>
+    );
+  }
   if (items.length === 0) {
     return (
       <Section className="!py-32 text-center">

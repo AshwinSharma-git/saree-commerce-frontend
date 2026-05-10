@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -7,21 +8,88 @@ import { Section, Eyebrow } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useShop } from "@/lib/store/shop-store";
-import { products } from "@/lib/data/products";
+import { products as staticProducts } from "@/lib/data/products";
+import { productsApi } from "@/lib/api/products";
+import { adaptProduct } from "@/lib/api/adapt";
 import { formatINR } from "@/lib/format";
+import type { Product } from "@/types";
 
 export default function CartPage() {
   const { cart, setQty, removeFromCart, clearCart } = useShop();
-  const items = Object.entries(cart).map(([id, qty]) => {
-    const product = products.find((p) => p.id === id)!;
-    return { product, qty };
-  }).filter((x) => x.product);
+  const cartIds = useMemo(() => Object.keys(cart), [cart]);
+  const [fetched, setFetched] = useState<Record<string, Product>>({});
+  const [resolving, setResolving] = useState(false);
+
+  // Resolve any cart ids that aren't in the static fallback by hitting the
+  // live products API. Without this, products created via seed/admin (which
+  // have Prisma cuids) render as "missing" and the page shows the empty
+  // state even though the bag count says 1+.
+  useEffect(() => {
+    let cancelled = false;
+    const missing = cartIds.filter(
+      (id) => !staticProducts.find((p) => p.id === id) && !fetched[id],
+    );
+    if (missing.length === 0) return;
+    setResolving(true);
+    Promise.all(
+      missing.map((id) =>
+        productsApi
+          .byId(id)
+          .catch(() => productsApi.byCode(id).catch(() => null)),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const next: Record<string, Product> = { ...fetched };
+        results.forEach((api, i) => {
+          if (api) next[missing[i]] = adaptProduct(api);
+        });
+        setFetched(next);
+      })
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cartIds, fetched]);
+
+  const items = cartIds
+    .map((id) => {
+      const product = staticProducts.find((p) => p.id === id) ?? fetched[id];
+      return product ? { product, qty: cart[id] } : null;
+    })
+    .filter((x): x is { product: Product; qty: number } => x !== null);
+
+  // Auto-prune stale ids that the API definitively could not resolve.
+  // (Don't prune while we're still fetching — the UI would briefly flicker
+  //  to empty before the resolved product lands.)
+  const unresolved = !resolving && cartIds.length > items.length;
+  useEffect(() => {
+    if (!unresolved) return;
+    cartIds.forEach((id) => {
+      const known = staticProducts.find((p) => p.id === id) ?? fetched[id];
+      if (!known) removeFromCart(id);
+    });
+  }, [unresolved, cartIds, fetched, removeFromCart]);
 
   const subtotal = items.reduce((sum, it) => sum + it.product.price * it.qty, 0);
   const shipping = subtotal > 0 && subtotal < 5000 ? 250 : 0;
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + shipping + tax;
 
+  // Show loading while we resolve cart ids — otherwise the page flashes
+  // the "empty bag" state before the API call lands.
+  if (items.length === 0 && cartIds.length > 0 && resolving) {
+    return (
+      <Section className="!py-32 text-center">
+        <div className="inline-flex items-center gap-3 text-[var(--color-fg-muted)]">
+          <span className="h-4 w-4 rounded-full border-2 border-[var(--color-maroon)] border-t-transparent animate-spin" />
+          <span className="text-sm tracking-wide">Loading your bag…</span>
+        </div>
+      </Section>
+    );
+  }
   if (items.length === 0) return <EmptyCart />;
 
   return (
